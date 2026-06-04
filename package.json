@@ -1,17 +1,20 @@
 {
   "name": "whatsapp-bot-evolution",
   "version": "1.0.0",
-  "description": "WhatsApp bot with Evolution API, OCR payment validation and GPT-4 session",
-  "main": "src/index.js",
+  "description": "WhatsApp bot with Twilio, OCR payment validation and GPT-4 session",
+  "main": "backend/src/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "start": "node backend/src/index.js",
+    "dev": "nodemon backend/src/index.js",
+    "test": "node scripts/test-bot.js",
+    "test:flow": "node scripts/simulate-flow.js"
   },
   "dependencies": {
     "axios": "^1.6.0",
     "dotenv": "^16.0.0",
     "express": "^4.18.0",
-    "openai": "^4.0.0"
+    "openai": "^4.0.0",
+    "twilio": "^6.0.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.0"

@@ -1,0 +1,22 @@
+:root {
+  --bg: #f8f5ff;
+  --bg-gradient: linear-gradient(
+    135deg,
+    #fef3c7 0%,
+    #fce7f3 25%,
+    #ede9fe 50%,
+    #ddd6fe 75%,
+    #c4b5fd 100%
+  );
+  --card: rgba(255, 255, 255, 0.82);
+  --card-border: rgba(124, 58, 237, 0.15);
+  --text: #1e1b4b;
+  --muted: #6b7280;
+  --accent: #7c3aed;
+  --accent-light: #a78bfa;
+  --accent-glow: rgba(124, 58, 237, 0.2);
+  --green: #16a34a;
+  --gray: #9ca3af;
+  --danger: #dc2626;
+  --shadow: 0 4px 24px rgba(124, 58, 237, 0.1);
+}

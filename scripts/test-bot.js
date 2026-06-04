@@ -7,21 +7,14 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 const axios = require('axios');
 
 const BASE = `http://localhost:${process.env.PORT || 3000}`;
-const TEST_USER = '51999000001@s.whatsapp.net';
+const DASH_PASSWORD = process.env.DASHBOARD_PASSWORD || 'admin123';
+const TEST_FROM = 'whatsapp:+51999000001';
 
-function webhookPayload(overrides = {}) {
+function twilioPayload(body, overrides = {}) {
   return {
-    event: 'messages.upsert',
-    data: {
-      key: {
-        remoteJid: TEST_USER,
-        fromMe: false,
-      },
-      message: {
-        conversation: 'hello test',
-      },
-      ...overrides.data,
-    },
+    From: TEST_FROM,
+    Body: body,
+    NumMedia: '0',
     ...overrides,
   };
 }
@@ -33,27 +26,25 @@ async function sleep(ms) {
 async function run() {
   const results = [];
 
-  // 1. Evolution API reachability
-  try {
-    await axios.get(process.env.EVOLUTION_API_URL, { timeout: 3000 });
-    results.push({ name: 'Evolution API', ok: true, detail: 'reachable' });
-  } catch (err) {
-    results.push({
-      name: 'Evolution API',
-      ok: false,
-      detail: err.code === 'ECONNREFUSED'
-        ? `not running at ${process.env.EVOLUTION_API_URL}`
-        : err.message,
-    });
-  }
+  // 1. Twilio credentials
+  const { isTwilioConfigured } = require('../backend/src/config/env');
+  const twilioConfigured = isTwilioConfigured();
+  results.push({
+    name: 'Twilio .env configured',
+    ok: twilioConfigured,
+    detail: twilioConfigured ? 'yes' : 'set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM',
+  });
 
   // 2. Bot HTTP server
   try {
-    const dash = await axios.get(`${BASE}/dashboard/api/sessions`, { timeout: 5000 });
+    const dash = await axios.get(`${BASE}/dashboard/data`, {
+      timeout: 5000,
+      headers: { 'X-Dashboard-Password': DASH_PASSWORD },
+    });
     results.push({
       name: 'Bot server + dashboard API',
       ok: true,
-      detail: `${dash.data.length} session(s)`,
+      detail: `${dash.data.summary.total_conversations} conversation(s) today`,
     });
   } catch (err) {
     results.push({
@@ -69,13 +60,15 @@ async function run() {
 
   // 3. Webhook — new user flow
   try {
-    await axios.post(`${BASE}/webhook`, webhookPayload(), { timeout: 5000 });
+    await axios.post(`${BASE}/webhook`, twilioPayload('hola'), { timeout: 5000 });
     await sleep(800);
-    const sessions = await axios.get(`${BASE}/dashboard/api/sessions`);
-    const session = sessions.data.find((s) => s.userId.includes('51999000001'));
-    const ok = session && session.state === 'AWAITING_PAYMENT';
+    const sessions = await axios.get(`${BASE}/dashboard/data`, {
+      headers: { 'X-Dashboard-Password': DASH_PASSWORD },
+    });
+    const session = sessions.data.conversations.find((s) => s.phone === '****0001');
+    const ok = session && session.state === 'WAITING_PAYMENT';
     results.push({
-      name: 'Webhook (new user → AWAITING_PAYMENT)',
+      name: 'Webhook (new user → WAITING_PAYMENT)',
       ok,
       detail: ok ? `state=${session.state}` : `session=${JSON.stringify(session)}`,
     });
@@ -83,31 +76,54 @@ async function run() {
     results.push({ name: 'Webhook (new user)', ok: false, detail: err.message });
   }
 
-  // 4. Webhook — text while awaiting payment
+  // 4. Brain JSON (oan_fin.json)
   try {
-    await axios.post(
-      `${BASE}/webhook`,
-      webhookPayload({
-        data: {
-          key: { remoteJid: TEST_USER, fromMe: false },
-          message: { conversation: 'where is payment?' },
-        },
-      }),
-      { timeout: 5000 }
-    );
-    await sleep(500);
+    const { loadBrain, BRAIN_PATH } = require('../backend/src/services/oanBrainService');
+    const brain = loadBrain();
+    const ok = brain.version === '2026.3.0' && brain.motor_algoritmico_numerologia;
     results.push({
-      name: 'Webhook (awaiting payment, no image)',
-      ok: true,
-      detail: 'accepted (Evolution send may fail if API not configured)',
+      name: 'Brain JSON (data/oan_fin.json)',
+      ok,
+      detail: ok ? `v${brain.version}` : 'missing or invalid',
     });
   } catch (err) {
-    results.push({ name: 'Webhook (awaiting payment)', ok: false, detail: err.message });
+    results.push({ name: 'Brain JSON', ok: false, detail: err.message });
   }
 
-  // 5. OpenAI chat (direct module test)
+  // 5. Numerology + free signals (local, from client doc)
   try {
-    const { chatWithGPT } = require('../src/services/openaiService');
+    const {
+      parseBirthDate,
+      calculateAge,
+      calculateNumerology,
+      calculatePersonalYear,
+      buildFreeSignalsMessage,
+    } = require('../backend/src/services/numerologyService');
+    const parsed = parseBirthDate('14/02/1995, Lima');
+    const age = calculateAge(parsed.day, parsed.month, parsed.year);
+    const nums = calculateNumerology(parsed.day, parsed.month, parsed.year);
+    const personalYear = calculatePersonalYear(parsed.day, parsed.month);
+    const msg = buildFreeSignalsMessage(nums);
+    const ok =
+      parsed.location === 'Lima' &&
+      age >= 18 &&
+      nums.lifePath === 4 &&
+      personalYear === 8 &&
+      msg.includes('Primera Señal') &&
+      msg.includes('952 989 503') === false &&
+      msg.includes('poner orden');
+    results.push({
+      name: 'Numerology + signal bank (14/02/1995)',
+      ok,
+      detail: ok ? `vida=${nums.lifePath}, año=${personalYear}` : JSON.stringify({ nums, personalYear }),
+    });
+  } catch (err) {
+    results.push({ name: 'Numerology + signals', ok: false, detail: err.message });
+  }
+
+  // 6. OpenAI chat (direct module test)
+  try {
+    const { chatWithGPT } = require('../backend/src/services/openaiService');
     const reply = await chatWithGPT([{ role: 'user', content: 'Reply with exactly: pong' }]);
     const ok = typeof reply === 'string' && reply.length > 0;
     results.push({
@@ -119,17 +135,13 @@ async function run() {
     results.push({ name: 'OpenAI GPT chat', ok: false, detail: err.message });
   }
 
-  // 6. Evolution credentials check
-  const evoConfigured =
-    process.env.EVOLUTION_API_KEY &&
-    process.env.EVOLUTION_API_KEY !== 'your_evolution_api_key_here' &&
-    process.env.EVOLUTION_INSTANCE &&
-    process.env.EVOLUTION_INSTANCE !== 'your_instance_name_here';
-  results.push({
-    name: 'Evolution .env configured',
-    ok: evoConfigured,
-    detail: evoConfigured ? 'yes' : 'still using placeholder values in .env',
-  });
+  // 7. Twilio SDK available
+  try {
+    require('twilio');
+    results.push({ name: 'Twilio SDK', ok: true, detail: 'installed' });
+  } catch (err) {
+    results.push({ name: 'Twilio SDK', ok: false, detail: err.message });
+  }
 
   printResults(results);
   const failed = results.filter((r) => !r.ok).length;

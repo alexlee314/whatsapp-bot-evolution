@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>El Oráculo Andino — Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/dashboard/assets/css/main.css" />
+</head>
+<body>
+  <div id="auth-gate">
+    <div class="auth-box">
+      <h1>El Oráculo Andino</h1>
+      <p>Panel de administración — ingresa la clave de acceso</p>
+      <form id="auth-form">
+        <input type="password" id="password-input" placeholder="Contraseña" autocomplete="current-password" required />
+        <button type="submit">Entrar</button>
+      </form>
+      <p class="auth-error" id="auth-error"></p>
+    </div>
+  </div>
+
+  <div id="dashboard" class="hidden">
+    <div class="wrap">
+      <header>
+        <h1>El Oráculo Andino</h1>
+        <p>Panel de conversaciones y sesiones</p>
+      </header>
+
+      <div class="refresh-bar">
+        <span><span class="dot"></span>Actualización automática cada 30 s</span>
+        <span id="last-updated">—</span>
+      </div>
+
+      <div class="cards" id="summary-cards">
+        <div class="card">
+          <div class="card-label">Conversaciones hoy</div>
+          <div class="card-value" id="stat-conversations">—</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Sesiones activas</div>
+          <div class="card-value" id="stat-active">—</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Pagos hoy</div>
+          <div class="card-value" id="stat-payments">—</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Ingresos hoy</div>
+          <div class="card-value currency" id="stat-revenue">—</div>
+        </div>
+      </div>
+
+      <section>
+        <h2>Sesiones activas</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Teléfono</th>
+                <th>Inicio sesión</th>
+                <th>Tiempo restante</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="active-sessions-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Historial de conversaciones</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Teléfono</th>
+                <th>Primer contacto</th>
+                <th>Estado</th>
+                <th>Mensajes</th>
+                <th>Pago</th>
+                <th>Último mensaje</th>
+              </tr>
+            </thead>
+            <tbody id="conversations-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Registro de pagos</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Teléfono</th>
+                <th>Pago recibido</th>
+                <th>Inicio sesión</th>
+                <th>Fin sesión</th>
+              </tr>
+            </thead>
+            <tbody id="payments-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script type="module" src="/dashboard/assets/js/app.js"></script>
+</body>
+</html>
