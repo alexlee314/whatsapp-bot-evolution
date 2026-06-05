@@ -3,8 +3,9 @@ const jsonStore = require('./jsonSessionStore');
 const postgresStore = require('./postgresSessionStore');
 
 function resolveStoreKind() {
-  if (config.sessionStore === 'json') return 'json';
-  if (config.sessionStore === 'postgres') return 'postgres';
+  const store = config.sessionStore;
+  if (store === 'json') return 'json';
+  if (store === 'postgres' || store === 'postgresql') return 'postgres';
   return config.databaseUrl ? 'postgres' : 'json';
 }
 

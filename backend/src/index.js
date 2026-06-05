@@ -17,6 +17,12 @@ async function startServer() {
     if (!config.databaseUrl) {
       throw new Error('SESSION_STORE=postgres requires DATABASE_URL in .env');
     }
+    if (config.databaseUrl.includes('db.') && config.databaseUrl.includes('.supabase.co:5432')) {
+      console.warn(
+        'Warning: Supabase direct host (db.*.supabase.co) often fails off-network. ' +
+          'Use the Session pooler URI from Supabase Dashboard → Database → Connection string.'
+      );
+    }
     await connectDb();
     await runMigrations();
     console.log('PostgreSQL connected');
