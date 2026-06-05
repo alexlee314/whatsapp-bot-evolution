@@ -42,9 +42,9 @@ function buildGreetAndPaymentMessage() {
 
 function getWelcomeMessages() {
   return [
-    'Bienvenido al Oráculo Andino ✨ Para ver las señales de tu camino, necesito tu fecha de nacimiento y tu distrito o ciudad.',
-    'Qué bueno encontrarte por aquí ✨ Déjame ver qué cartas y números te rodean hoy. Por favor, compárteme tu fecha de nacimiento y tu ciudad actual.',
-    'El Oráculo Andino te saluda ✨ Para revelar el mapa de tu energía y tus señales actuales, necesito que me dejes tu fecha de nacimiento junto a tu ciudad.',
+    'Bienvenido al Oráculo Andino ✨ Para ver las señales de tu camino, compárteme tu fecha de nacimiento — en cualquier formato — y, si quieres, tu hora y ciudad en un solo mensaje.',
+    'Qué bueno encontrarte por aquí ✨ Déjame ver qué cartas y números te rodean hoy. Escríbeme tu fecha de nacimiento como prefieras (ej.: 4 de mayo 1980, 3pm, Lima) y seguimos.',
+    'El Oráculo Andino te saluda ✨ Para revelar el mapa de tu energía, necesito tu fecha de nacimiento. Puedes incluir hora y ciudad en el mismo mensaje, en español o inglés.',
   ];
 }
 

@@ -1,0 +1,11 @@
+{
+  "watch": ["backend/src"],
+  "ext": "js",
+  "ignore": [
+    "backend/data/**",
+    "frontend/**",
+    "node_modules/**",
+    "scripts/**",
+    "docs/**"
+  ]
+}

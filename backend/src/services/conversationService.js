@@ -12,11 +12,11 @@ const {
   buildSessionClosing,
 } = require('../constants/messages');
 const {
-  parseBirthDate,
   calculateAge,
   calculateNumerology,
   wantsToEndSession,
 } = require('../domain/numerology');
+const { parseBirthDateFlexible } = require('./birthDateService');
 const {
   getSession,
   createSession,
@@ -29,20 +29,30 @@ const { sendTextMessage } = require('./whatsappService');
 const { validatePaymentImage, getPaymentErrorMessage } = require('./paymentService');
 const { chatWithGPT } = require('./openaiService');
 
+const RESTART_TRIGGERS = ['reiniciar', 'empezar de nuevo', 'start over', 'reset'];
+
+function wantsSessionRestart(text) {
+  const lower = String(text || '').toLowerCase();
+  return RESTART_TRIGGERS.some((trigger) => lower.includes(trigger));
+}
+
 async function processIncomingMessage({ from, text, hasImage, media }) {
   const session = await getSession(from);
+
+  if (text && wantsSessionRestart(text)) {
+    await endSession(from);
+    await createSession(from, SESSION_STATES.AWAITING_BIRTH_DATE);
+    await sendTextMessage(from, MESSAGES.welcome);
+    return;
+  }
 
   if (
     !session ||
     session.state === SESSION_STATES.NEW ||
     session.state === SESSION_STATES.SESSION_ENDED
   ) {
-    await createSession(from, SESSION_STATES.AWAITING_PAYMENT);
-    await sendTextMessage(from, MESSAGES.greetAndPayment);
-
-    if (hasImage && media) {
-      await handlePayment(from, hasImage, media);
-    }
+    await createSession(from, SESSION_STATES.AWAITING_BIRTH_DATE);
+    await sendTextMessage(from, MESSAGES.welcome);
     return;
   }
 
@@ -80,7 +90,7 @@ async function handleBirthDate(from, text) {
     return;
   }
 
-  const parsed = parseBirthDate(text);
+  const parsed = await parseBirthDateFlexible(text);
   if (!parsed) {
     await sendTextMessage(from, MESSAGES.birthDateInvalid);
     return;
@@ -97,6 +107,7 @@ async function handleBirthDate(from, text) {
   await updateSession(from, {
     state: SESSION_STATES.AWAITING_HOOK_RESPONSE,
     birthDate: numerology.birthDateLabel,
+    birthTime: parsed.timeOfBirth || null,
     location: parsed.location,
     ageVerified: true,
     numerology,
@@ -179,11 +190,12 @@ function buildNumerologyContext(session) {
   if (!session.numerology) return '';
 
   const locationPart = session.location ? `, Ubicación: ${session.location}` : '';
+  const timePart = session.birthTime ? `, Hora de nacimiento: ${session.birthTime}` : '';
 
   return (
     `[Contexto numerológico — Número de vida: ${session.numerology.lifePath}, ` +
     `Año personal: ${session.numerology.personalYear}, Color: ${session.numerology.color}, ` +
-    `Fecha: ${session.birthDate}${locationPart}]\n\n`
+    `Fecha: ${session.birthDate}${timePart}${locationPart}]\n\n`
   );
 }
 

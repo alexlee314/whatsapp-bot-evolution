@@ -5,6 +5,8 @@ const config = {
   openaiApiKey: process.env.OPENAI_API_KEY,
   dashboardPassword: process.env.DASHBOARD_PASSWORD || 'admin123',
   webhookReturnResponses: process.env.WEBHOOK_RETURN_RESPONSES === 'true',
+  databaseUrl: process.env.DATABASE_URL || null,
+  sessionStore: (process.env.SESSION_STORE || 'auto').toLowerCase(),
   databasePath: process.env.DATABASE_PATH || null,
   twilio: {
     accountSid: process.env.TWILIO_ACCOUNT_SID,

@@ -66,9 +66,9 @@ async function run() {
       headers: { 'X-Dashboard-Password': DASH_PASSWORD },
     });
     const session = sessions.data.conversations.find((s) => s.phone === '****0001');
-    const ok = session && session.state === 'WAITING_PAYMENT';
+    const ok = session && session.state === 'WAITING_BIRTHDATE';
     results.push({
-      name: 'Webhook (new user → WAITING_PAYMENT)',
+      name: 'Webhook (new user → WAITING_BIRTHDATE)',
       ok,
       detail: ok ? `state=${session.state}` : `session=${JSON.stringify(session)}`,
     });

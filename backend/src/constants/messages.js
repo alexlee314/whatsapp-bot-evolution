@@ -24,10 +24,10 @@ const MESSAGES = {
   paymentConfirmed: getPaymentConfirmedMessage(),
 
   birthDateRequired:
-    'Por favor, compárteme tu *fecha de nacimiento* y tu *ciudad o distrito* (ejemplo: 14/02/1995, Lima) ✨.',
+    'Por favor, compárteme tu *fecha de nacimiento* y, si quieres, tu *hora* y *ciudad* en un solo mensaje ✨ (ej.: 4 de mayo 1980, 3pm, Lima).',
 
   birthDateInvalid:
-    'No logré leer tu fecha. Escríbela así: *día/mes/año* y agrega tu ciudad (ejemplo: 14/02/1995, Lima) ✨.',
+    'No logré leer tu fecha. Escríbela como prefieras — en español o inglés — y puedes incluir hora y ciudad en el mismo mensaje ✨ (ej.: 4 de mayo 1980, 3pm, Lima · 4 of may 1980 born at noon in Cusco).',
 
   get paymentScreenshotRequired() {
     return getPaymentFreezeMessage();

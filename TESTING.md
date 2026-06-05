@@ -34,6 +34,13 @@ Invoke-RestMethod -Method Post -Uri "http://localhost:3001/webhook" -ContentType
 
 With `WEBHOOK_RETURN_RESPONSES=true`, the response includes `replies` and `session`.
 
+## Conversation funnel
+
+1. **Welcome** — asks for birth date + city  
+2. **Free signals** — numerology reading + hook question  
+3. **Payment wall** — S/ 4.90 Yape screenshot  
+4. **Paid session** — 1-hour GPT chat after valid payment
+
 ## Test with ngrok + Twilio
 
 1. Run bot: `npm run dev`
@@ -59,3 +66,5 @@ See [STRUCTURE.md](./STRUCTURE.md) for the full backend/frontend layout.
 | Webhook 404 | URL must end with `/webhook` |
 | Payment OCR fails | User must send image; Twilio provides `MediaUrl0` |
 | Still see JSON in prod | Set `WEBHOOK_RETURN_RESPONSES=false` |
+| ngrok 502 Bad Gateway | Use `ngrok http 3001` (match PORT in `.env`); restart `npm run dev` after nodemon.json fix |
+| Server keeps restarting | nodemon ignores `backend/data/` — do not remove `nodemon.json` |
