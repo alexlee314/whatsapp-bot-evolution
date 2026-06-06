@@ -23,16 +23,23 @@ function parseTwilioWebhook(body) {
   const from = normalizeWhatsAppFrom(body.From);
   const text = (body.Body || '').trim();
   const numMedia = Number(body.NumMedia || 0);
-  const hasImage = numMedia > 0 && Boolean(body.MediaUrl0);
+  const mediaUrl = body.MediaUrl0 || body.mediaUrl0;
+  const hasImage = numMedia > 0 && Boolean(mediaUrl);
+  const messageSid = body.MessageSid || body.SmsMessageSid || null;
+
+  if (numMedia > 0 && !mediaUrl) {
+    console.warn('Twilio webhook: NumMedia>0 but MediaUrl0 missing', { from, messageSid });
+  }
 
   return {
     from,
     text,
     hasImage,
+    messageSid,
     media: hasImage
       ? {
-          url: body.MediaUrl0,
-          contentType: body.MediaContentType0 || 'image/jpeg',
+          url: mediaUrl,
+          contentType: body.MediaContentType0 || body.mediaContentType0 || 'image/jpeg',
         }
       : null,
   };

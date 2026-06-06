@@ -1,5 +1,46 @@
 const { SESSION_END_TRIGGERS } = require('../../constants/numerologyData');
 
+const MONTH_BY_NAME = {
+  enero: 1,
+  january: 1,
+  jan: 1,
+  febrero: 2,
+  february: 2,
+  feb: 2,
+  marzo: 3,
+  march: 3,
+  mar: 3,
+  abril: 4,
+  april: 4,
+  apr: 4,
+  mayo: 5,
+  may: 5,
+  junio: 6,
+  june: 6,
+  jun: 6,
+  julio: 7,
+  july: 7,
+  jul: 7,
+  agosto: 8,
+  august: 8,
+  aug: 8,
+  septiembre: 9,
+  september: 9,
+  sep: 9,
+  sept: 9,
+  octubre: 10,
+  october: 10,
+  oct: 10,
+  noviembre: 11,
+  november: 11,
+  nov: 11,
+  diciembre: 12,
+  december: 12,
+  dec: 12,
+};
+
+const MONTH_NAME_PATTERN = Object.keys(MONTH_BY_NAME).join('|');
+
 function isValidDate(day, month, year) {
   const date = new Date(year, month - 1, day);
   return (
@@ -97,6 +138,53 @@ function parseBirthDate(text) {
   return null;
 }
 
+function parseNaturalLanguageBirthDate(text) {
+  const trimmed = text.trim();
+  const monthRe = new RegExp(
+    `(\\d{1,2})\\s+(?:de\\s+|del\\s+|of\\s+)?(${MONTH_NAME_PATTERN})\\s+(?:de\\s+|del\\s+|of\\s+)?(\\d{2,4})`,
+    'i'
+  );
+  const match = trimmed.match(monthRe);
+  if (!match) return null;
+
+  const day = Number(match[1]);
+  const month = MONTH_BY_NAME[match[2].toLowerCase()];
+  const year = normalizeYear(Number(match[3]));
+  if (!month || !isValidDate(day, month, year)) return null;
+
+  const remainder = trimmed.replace(match[0], '').replace(/^[,.\s-]+|[,\s-]+$/g, '').trim();
+  const { timeOfBirth, location } = parseRemainder(remainder);
+
+  return { day, month, year, location: location || null, timeOfBirth: timeOfBirth || null, remainder };
+}
+
+function parseBirthDateLocal(text) {
+  const numeric = parseBirthDate(text);
+  if (numeric) {
+    const { timeOfBirth, location } = parseRemainder(numeric.remainder);
+    return {
+      day: numeric.day,
+      month: numeric.month,
+      year: numeric.year,
+      timeOfBirth: timeOfBirth || null,
+      location: location || numeric.location || null,
+    };
+  }
+
+  const natural = parseNaturalLanguageBirthDate(text);
+  if (natural) {
+    return {
+      day: natural.day,
+      month: natural.month,
+      year: natural.year,
+      timeOfBirth: natural.timeOfBirth || null,
+      location: natural.location || null,
+    };
+  }
+
+  return null;
+}
+
 function calculateAge(day, month, year) {
   const today = new Date();
   let age = today.getFullYear() - year;
@@ -117,6 +205,7 @@ function wantsToEndSession(text) {
 
 module.exports = {
   parseBirthDate,
+  parseBirthDateLocal,
   buildBirthDateResult,
   parseRemainder,
   calculateAge,

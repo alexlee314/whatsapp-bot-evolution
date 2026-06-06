@@ -1,8 +1,7 @@
 .table-wrap {
   background: var(--card);
-  backdrop-filter: blur(10px);
   border: 1px solid var(--card-border);
-  border-radius: 12px;
+  border-radius: 8px;
   overflow-x: auto;
   box-shadow: var(--shadow);
 }
@@ -34,7 +33,7 @@ tr:last-child td {
 }
 
 tr:hover td {
-  background: rgba(124, 58, 237, 0.08);
+  background: var(--bg-subtle);
 }
 
 .empty {

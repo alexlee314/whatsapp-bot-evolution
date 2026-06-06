@@ -80,7 +80,9 @@ async function run() {
   try {
     const { loadBrain, BRAIN_PATH } = require('../backend/src/services/oanBrainService');
     const brain = loadBrain();
-    const ok = brain.version === '2026.3.0' && brain.motor_algoritmico_numerologia;
+    const ok =
+      brain.version === '2026.14.0' &&
+      (brain.motor_algoritmico_numerologia_y_astrologia || brain.motor_algoritmico_numerologia);
     results.push({
       name: 'Brain JSON (data/oan_fin.json)',
       ok,
@@ -97,21 +99,28 @@ async function run() {
       calculateAge,
       calculateNumerology,
       calculatePersonalYear,
-      buildFreeSignalsMessage,
+      buildFirstFreeSignalMessage,
+      buildSecondFreeSignalMessage,
     } = require('../backend/src/services/numerologyService');
     const parsed = parseBirthDate('14/02/1995, Lima');
     const age = calculateAge(parsed.day, parsed.month, parsed.year);
     const nums = calculateNumerology(parsed.day, parsed.month, parsed.year);
     const personalYear = calculatePersonalYear(parsed.day, parsed.month);
-    const msg = buildFreeSignalsMessage(nums);
+    const signal1 = buildFirstFreeSignalMessage(nums);
+    const signal2 = buildSecondFreeSignalMessage(nums);
     const ok =
       parsed.location === 'Lima' &&
       age >= 18 &&
       nums.lifePath === 4 &&
       personalYear === 8 &&
-      msg.includes('Primera Señal') &&
-      msg.includes('952 989 503') === false &&
-      msg.includes('poner orden');
+      signal1.includes('poner orden') &&
+      !signal1.includes('Primera Señal') &&
+      signal1.includes('?') &&
+      signal2.includes('Segunda Señal') === false &&
+      signal2.includes('?') &&
+      signal1.includes('952 989 503') === false &&
+      signal2.includes('952 989 503') === false &&
+      signal1.includes('Segunda Señal') === false;
     results.push({
       name: 'Numerology + signal bank (14/02/1995)',
       ok,

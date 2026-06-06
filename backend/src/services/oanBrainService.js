@@ -23,9 +23,180 @@ function pickRandom(items) {
   return items[Math.floor(Math.random() * items.length)];
 }
 
+function getMotorConfig() {
+  const brain = loadBrain();
+  return (
+    brain.motor_algoritmico_numerologia_y_astrologia ||
+    brain.motor_algoritmico_numerologia ||
+    null
+  );
+}
+
 function getArchetype(numberKey) {
   const key = String(numberKey);
-  return loadBrain().motor_algoritmico_numerologia.arquetipos_matrices[key] || null;
+  return getMotorConfig()?.arquetipos_matrices?.[key] || null;
+}
+
+function getArchetypeConcepts(archetype) {
+  return (
+    archetype?.conceptos_clave ||
+    'ciclos, equilibrio y caminar paso a paso con mente fría'
+  );
+}
+
+function formatWhatsAppMarkdown(text) {
+  return String(text || '').replace(/\*\*/g, '*');
+}
+
+function buildKnowledgeSourceGuard() {
+  return (
+    `FUENTE DE VERDAD ÚNICA (INQUEBRANTABLE):\n` +
+    `- Solo puedes usar INSTRUCCIONES OFICIALES (instruction-oan-behavior.txt) y CEREBRO TÉCNICO (oan_fin.json) incluidos abajo.\n` +
+    `- PROHIBIDO buscar en internet, usar navegador, herramientas web, noticias, Wikipedia o cualquier fuente externa.\n` +
+    `- PROHIBIDO apoyarte en conocimiento general, entrenamiento previo o datos que NO aparezcan en esos dos documentos.\n` +
+    `- PROHIBIDO inventar precios, teléfonos, textos comerciales, arquetipos o reglas que no estén en esos documentos.\n` +
+    `- Si el usuario pide algo fuera de los documentos, responde con lo permitido por el blindaje comercial o redirige al hilo sin inventar.\n\n`
+  );
+}
+
+function buildEmbeddedKnowledgeContext() {
+  const brain = loadBrain();
+  const instruction = loadInstruction();
+
+  return (
+    `${buildKnowledgeSourceGuard()}` +
+    `--- INSTRUCCIONES OFICIALES ---\n\n${instruction}\n\n` +
+    `--- CEREBRO TÉCNICO (oan_fin.json) ---\n\n${JSON.stringify(brain, null, 2)}`
+  );
+}
+
+function stripBrainForPaidSession(brain) {
+  const copy = JSON.parse(JSON.stringify(brain));
+  const shield = copy.blindaje_seguridad_comercial;
+  if (!shield) return copy;
+
+  delete shield.flujo_cobro_dinamico_sensible;
+  if (shield.validacion_pago) {
+    const { recordatorio_congelado, ...restValidation } = shield.validacion_pago;
+    shield.validacion_pago = restValidation;
+  }
+
+  return copy;
+}
+
+function buildPaidSessionInstruction() {
+  const instruction = loadInstruction();
+  const match = instruction.match(/^([\s\S]*?)## 6\.[\s\S]*?(## 8\.[\s\S]*)$/);
+  if (!match) return instruction;
+
+  return (
+    `${match[1].trim()}\n\n` +
+    `## 6. SESIÓN PAGADA ACTIVA (OVERRIDE — PRIORIDAD MÁXIMA)\n` +
+    `* El usuario YA pagó. Su sesión personalizada está ABIERTA ahora.\n` +
+    `* PROHIBIDO mencionar Yape, Plin, S/ 4.90, captura, comprobante, contribución o "abrir sesión".\n` +
+    `* DEBES responder la pregunta literal del usuario en la primera oración.\n` +
+    `* Puedes dar señales, orientación simbólica y preguntas de enfoque sobre amor, trabajo, dinero o decisiones.\n` +
+    `* NO apliques el muro de cobro ni el candado post-cobro del embudo gratuito.\n\n` +
+    match[2].trim()
+  );
+}
+
+function buildPaidSessionKnowledgeContext() {
+  const brain = stripBrainForPaidSession(loadBrain());
+  const instruction = buildPaidSessionInstruction();
+
+  return (
+    `${buildKnowledgeSourceGuard()}` +
+    `CONTEXTO DE SESIÓN: PAGADA Y ACTIVA. Ignora cualquier regla de embudo gratuito o muro de cobro en los documentos.\n\n` +
+    `--- INSTRUCCIONES OFICIALES (sesión pagada) ---\n\n${instruction}\n\n` +
+    `--- CEREBRO TÉCNICO (sin funnel comercial) ---\n\n${JSON.stringify(brain, null, 2)}`
+  );
+}
+
+const PAYMENT_WALL_MARKERS = [
+  /952\s*989\s*503/i,
+  /S\/\s*4\.?\s*90/i,
+  /4\.?\s*90.*yape/i,
+  /yape.*4\.?\s*90/i,
+  /captura.*(?:yape|plin|comprobante)/i,
+  /env[ií]ame.*captura/i,
+  /contribuci[oó]n.*sesi[oó]n/i,
+  /abrir tu sesi[oó]n de 1 hora/i,
+  /esperando tu captura/i,
+  /quedo aqu[ií] en serenidad/i,
+  /realiza la colaboraci[oó]n/i,
+];
+
+const SESSION_SCOPE_PATTERNS = [
+  /de qu[eé]\s+(podemos|puedo)\s+hablar/i,
+  /qu[eé]\s+puedo\s+preguntar/i,
+  /me\s+vas\s+a\s+dar\s+consejos?/i,
+  /qu[eé]\s+tipo\s+de\s+(lectura|consulta)/i,
+  /c[oó]mo\s+funciona\s+(esta\s+)?sesi[oó]n/i,
+  /qu[eé]\s+incluye/i,
+  /what can we talk about/i,
+  /will you give me advice/i,
+];
+
+const QUESTION_CHALLENGE_PATTERNS = [
+  /y\s+la\s+pregunta\s+que\s+te\s+hice/i,
+  /no\s+(me\s+)?respondiste/i,
+  /no\s+contestaste/i,
+  /respondiste\s+sin\s+sentido/i,
+  /you\s+didn'?t\s+answer/i,
+  /what\s+about\s+my\s+question/i,
+];
+
+function isPaymentWallLikeReply(text) {
+  const value = String(text || '');
+  if (!value) return false;
+
+  const hits = PAYMENT_WALL_MARKERS.filter((pattern) => pattern.test(value));
+  if (hits.length >= 2) return true;
+
+  return /952\s*989\s*503/.test(value) && /S\/\s*4|4\.90|4,90/i.test(value);
+}
+
+function isSessionScopeQuestion(text) {
+  const value = String(text || '');
+  return SESSION_SCOPE_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+function isQuestionChallenge(text) {
+  const value = String(text || '');
+  return QUESTION_CHALLENGE_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+function buildPaidSessionScopeReply() {
+  return (
+    'En esta sesión podemos explorar a fondo amor, trabajo, dinero, decisiones importantes o lo que hoy te pese en el corazón.\n\n' +
+    'Te doy orientación simbólica y numerológica — señales para mirar tu camino con claridad, no predicciones rígidas ni respuestas de sí o no.\n\n' +
+    'Sí te acompaño con consejos de enfoque; no reemplazo médico, legal ni contable. ¿Por qué tema quieres empezar?'
+  );
+}
+
+function buildPaidSessionFallbackReply(userText, numerology) {
+  if (isSessionScopeQuestion(userText)) {
+    return buildPaidSessionScopeReply();
+  }
+
+  const theme = detectUserTheme(userText);
+  const archetype = getArchetype(numerology?.lifePath) || getArchetype(22);
+  if (theme) {
+    return (
+      `${pickThemeOpening(theme, 0)} Con *${archetype.nombre}* en tu mapa, conviene mirarlo con mente fría.\n\n` +
+      `${pickFollowUpQuestion(theme, userText, 0)}`
+    );
+  }
+
+  return (
+    'Entiendo tu inquietud. En esta sesión podemos profundizar en amor, trabajo, dinero o una decisión que lleves postergando.\n\n' +
+    '¿Qué situación concreta quieres que miremos primero?'
+  );
+}
+
+function getCommercialShield() {
+  return loadBrain().blindaje_seguridad_comercial || {};
 }
 
 function getGreetAndPaymentMessages() {
@@ -41,10 +212,36 @@ function buildGreetAndPaymentMessage() {
 }
 
 function getWelcomeMessages() {
+  const ritual = getCommercialShield().primer_mensaje_registro_ritual?.texto;
+  if (ritual) return [formatWhatsAppMarkdown(ritual)];
+
   return [
-    'Bienvenido al Oráculo Andino ✨ Para ver las señales de tu camino, compárteme tu fecha de nacimiento — en cualquier formato — y, si quieres, tu hora y ciudad en un solo mensaje.',
-    'Qué bueno encontrarte por aquí ✨ Déjame ver qué cartas y números te rodean hoy. Escríbeme tu fecha de nacimiento como prefieras (ej.: 4 de mayo 1980, 3pm, Lima) y seguimos.',
-    'El Oráculo Andino te saluda ✨ Para revelar el mapa de tu energía, necesito tu fecha de nacimiento. Puedes incluir hora y ciudad en el mismo mensaje, en español o inglés.',
+    'Bienvenido. Toma un respiro profundo y dedica un instante a sentir qué busca realmente tu corazón en este momento. Cuando estés listo, compárteme tu *fecha de nacimiento* junto a tu *ciudad actual*, y comenzaremos a observar tus señales.',
+  ];
+}
+
+function getFirstSignalFollowUpQuestions() {
+  const examples = loadBrain().ejemplos_base_respuestas_por_area || {};
+  const fromAreas = [examples.amor, examples.trabajo, examples.dinero].filter(Boolean);
+  if (fromAreas.length) {
+    return fromAreas.map((sample) => {
+      const match = String(sample).match(/(?:^|[.!]\s*)([^?]+\?)\s*$/);
+      return match ? match[1].trim() : String(sample).trim();
+    });
+  }
+
+  return [
+    '¿Sientes que esta tensión viene de heridas que no han cerrado o de la incertidumbre actual?',
+    '¿Sientes que este estancamiento se debe a la falta de oportunidades o a dudas propias?',
+    '¿Resuena contigo lo que acabas de leer?',
+  ];
+}
+
+function getSecondSignalFollowUpQuestions() {
+  return [
+    '¿Sientes que el color y la señal juntos te dicen algo sobre lo que vives?',
+    '¿Te gustaría conectar esto con amor, trabajo o una decisión tuya?',
+    '¿Resuena contigo lo que marcan tus números y tu color hoy?',
   ];
 }
 
@@ -57,16 +254,11 @@ function getHookQuestions() {
   ];
 }
 
-function getPaymentWallMessages() {
-  return [
-    'Es completamente natural sentir ese peso. Si deseas profundizar en amor, dinero o tus proyectos personales, el Oráculo Andino ofrece una sesión personalizada de hasta 1 hora. La contribución para acceder es de *S/ 4.90* vía Yape al *952 989 503*. Me quedo en calma esperando tu captura para abrir tu sesión hoy. ¿Te gustaría?',
-    'Comprendo perfectamente lo que pasas. Para abrir tu sesión personalizada de 1 hora y destrabar esos nudos en tu amor o dinero, puedes realizar la colaboración de *S/ 4.90* por Yape al número *952 989 503*. Aguardo aquí la captura de tu constancia para empezar con la mejor energía. ¿Le damos?',
-    'Esa energía se puede canalizar a tu favor. Si estás listo para revisar a fondo tus proyectos y tu destino en una sesión de 1 hora, el acceso es de *S/ 4.90* mediante Yape al *952 989 503*. La lectura completa ya está lista; envíame la foto de tu comprobante para revelarla. ¿Te animas?',
-  ];
-}
-
 function getMinorRejectedMessage() {
-  return 'El Oráculo Andino es un servicio para adultos. No puedo continuar la lectura, pero te envío una señal simbólica de buena energía ✨.';
+  return (
+    getCommercialShield().filtro_edad?.regla_menor ||
+    'El Oráculo Andino es un espacio reservado para adultos. No me es posible continuar con la lectura, pero te envío una señal de armonía y buena energía ✨.'
+  );
 }
 
 function getPaymentConfirmedMessage() {
@@ -74,66 +266,679 @@ function getPaymentConfirmedMessage() {
 }
 
 function getPaymentFreezeMessage() {
-  return 'Para continuar con tu lectura detallada, por favor envíame la captura de tu Yape de *S/ 4.90* al *952 989 503*. Las respuestas ya están listas para ti.';
+  const reminder = getCommercialShield().validacion_pago?.recordatorio_congelado;
+  if (reminder) return formatWhatsAppMarkdown(reminder);
+
+  return 'Para continuar con la interpretación detallada de tu mapa, envíame la captura de tu Yape de *S/ 4.90* al *952 989 503*. Las señales ya se encuentran dispuestas para ti.';
 }
 
-function getMysticSymbols() {
-  return ['Huayruro', 'Chakana', 'Velita blanca', 'Cuarzo'];
+function buildFirstFreeSignalMessage(numerology) {
+  const archetype = getArchetype(numerology.lifePath) || getArchetype(22);
+  const signal = `${archetype.emoticon || '✨'} ${archetype.senal_gratuita}`;
+  const colorLine =
+    archetype.color && archetype.significado_color
+      ? `\n\n🎨 El color *${archetype.color}* es tu color protector para tus próximas 24 horas: ${archetype.significado_color}`
+      : '';
+
+  return `${signal}${colorLine}\n\n${pickRandom(getFirstSignalFollowUpQuestions())}`;
 }
 
-function getRandomMantra() {
-  return pickRandom(loadBrain().blindaje_seguridad_comercial.cierre_y_mantras.frases_mantra_aleatorias);
+function buildSecondFreeSignalMessage(numerology) {
+  const archetype = getArchetype(numerology.lifePath) || getArchetype(22);
+  const color = archetype?.color || numerology.color || numerology.dayColor;
+  const colorMeaning = archetype?.significado_color || '';
+  const colorLine = colorMeaning
+    ? `🎨 El color *${color}* es tu color protector para tus próximas 24 horas: ${colorMeaning}`
+    : `🎨 El color *${color}* te acompaña hoy con una señal de equilibrio y claridad.`;
+
+  return `${colorLine}\n\n${pickRandom(getSecondSignalFollowUpQuestions())}`;
 }
 
-function buildFreeSignalsMessage(numerology) {
+const GENERIC_ANCHORS = new Set([
+  'esa sensación que compartes',
+  'lo que hoy pesa en tu corazón',
+  'esa duda que llevas dentro',
+]);
+
+const REASSURANCE_PATTERNS = [
+  /voy a estar bien/i,
+  /me ir[aá]\s+bien/i,
+  /saldr[eé]\s+adelante/i,
+  /todo va a (salir|estar) bien/i,
+  /estar[eé]\s+bien/i,
+  /will i be ok/i,
+  /am i going to be ok/i,
+  /going to be okay/i,
+];
+
+function isGenericAnchor(anchor) {
+  return GENERIC_ANCHORS.has(String(anchor || '').trim().toLowerCase());
+}
+
+function isReassuranceQuestion(text) {
+  const value = String(text || '');
+  return REASSURANCE_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+function extractSubstantiveClause(userText) {
+  const value = String(userText || '').trim();
+  if (!value) return null;
+
+  if (/\b(es|est[aá])\s+algo\s+m[aá]s\s+difuso\b/i.test(value)) {
+    return 'esa sensación difusa que te acompaña';
+  }
+
+  if (/\b(es|est[aá])\s+algo\s+m[aá]s\s+personal\b/i.test(value)) {
+    return 'algo más personal en lo que vives';
+  }
+
+  if (/\b(es|est[aá])\s+(.{4,45}?)(?:[.?,]|$)/i.test(value)) {
+    const match = value.match(/\b(es|est[aá])\s+(.{4,45}?)(?:[.?,]|$)/i);
+    const clause = match?.[2]?.trim().toLowerCase();
+    if (clause && !isReassuranceQuestion(clause) && clause.length <= 45) {
+      return clause.replace(/\s+(pero|but)\b.*$/i, '').trim() || null;
+    }
+  }
+
+  return null;
+}
+
+function buildReassuranceFunnelReply(numerology, userText = '') {
+  const archetype = getArchetype(numerology.lifePath) || getArchetype(22);
+  const diffuse = /\bdifuso\b/i.test(userText);
+  const opening = diffuse
+    ? 'Entiendo: es algo difuso, no un evento puntual — eso también se lee en tu mapa.'
+    : 'Tu pregunta por estar bien es válida.';
+
+  return (
+    `${opening} *${archetype.nombre}* no marca un final cerrado; señala un proceso donde la calma y el paso a paso importan más que la prisa.\n\n` +
+    `¿Qué parte de lo que sientes pesa más hoy: el miedo, el cansancio o la incertidumbre?`
+  );
+}
+
+const OPINION_FILLER_PREFIX =
+  /^(creo que\s+(es\s+)?|pienso que\s+(es\s+)?|siento que\s+(es\s+)?|me parece que\s+(es\s+)?|i think( it's| it is)?\s*)/i;
+
+const UNCLEAR_MESSAGE_PATTERNS = [
+  /\bhan\s+(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b/i,
+  /\bno\s+han\s+s[aá]bado\b/i,
+  /\bheridas?\b.*\bhan\s+s[aá]bado\b/i,
+  /\bwounds?\b.*\b(saturday|sunday|monday|tuesday|wednesday|thursday|friday)\b/i,
+];
+
+function needsUserClarification(userText) {
+  const value = String(userText || '').trim();
+  if (!value) return false;
+  if (UNCLEAR_MESSAGE_PATTERNS.some((pattern) => pattern.test(value))) return true;
+
+  const normalized = value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
+
+  if (OPINION_FILLER_PREFIX.test(value) && /\bhan sabado\b/.test(normalized)) {
+    return true;
+  }
+
+  return false;
+}
+
+function buildUserClarificationReply(userText = '') {
+  const value = String(userText || '').trim();
+
+  if (/\bheridas?\b/i.test(value) && /\bhan\s+s[aá]bado\b/i.test(value)) {
+    return (
+      'Quise entenderte bien: ¿hablabas de *heridas que aún no han sanado*?\n\n' +
+      'Cuéntame en una frase simple qué sientes — así conecto tu señal con claridad ✨'
+    );
+  }
+
+  if (/\bhan\s+s[aá]bado\b/i.test(value)) {
+    return (
+      'No me quedó del todo claro tu mensaje — ¿quizá quisiste decir *sanado* en lugar de *sábado*?\n\n' +
+      'Escríbelo otra vez en pocas palabras y te leo con precisión ✨'
+    );
+  }
+
+  return (
+    'Quise entenderte, pero no me quedó del todo claro lo que escribiste.\n\n' +
+    '¿Puedes decirlo otra vez en una frase corta? Así conecto tu señal con claridad ✨'
+  );
+}
+
+function summarizeAnchorPhrase(value) {
+  const cleaned = String(value || '')
+    .trim()
+    .replace(OPINION_FILLER_PREFIX, '')
+    .replace(/^["'“”]+|["'“”]+$/g, '')
+    .trim();
+
+  if (!cleaned) return 'esa sensación que compartes';
+
+  const words = cleaned.split(/\s+/);
+  if (words.length <= 6 && cleaned.length <= 45) return cleaned.toLowerCase();
+
+  if (/\bheridas?\b/.test(cleaned)) return 'heridas que aún no han sanado';
+  if (/\b(miedo|duda|incertidumbre)\b/.test(cleaned)) return 'esa duda que llevas dentro';
+  if (/\b(trabajo|empleo|carrera|software)\b/.test(cleaned)) return 'tu camino profesional';
+  if (/\b(dinero|deuda|econ[oó]m)\b/.test(cleaned)) return 'tu situación económica';
+  if (/\b(relaci[oó]n|pareja|amor)\b/.test(cleaned)) return 'esa tensión en tus afectos';
+
+  return 'esa sensación que compartes';
+}
+
+function extractAnchorPhrase(userText) {
+  const value = String(userText || '').trim();
+  if (!value) return null;
+
+  if (/^(thanks|thank you|gracias|thanks a lot)/i.test(value)) {
+    return 'lo que hoy pesa en tu corazón';
+  }
+
+  const substantive = extractSubstantiveClause(value);
+  if (substantive) return substantive;
+
+  const theme = detectUserTheme(value);
+  if (theme?.key === 'work') return 'asumir más responsabilidad en tu camino profesional';
+  if (theme?.key === 'money') return 'ordenar tu economía paso a paso';
+  if (theme?.key === 'relationship' || theme?.key === 'toxic_relationship') {
+    return 'esa tensión en tus afectos';
+  }
+  if (theme?.key === 'decision') return 'postergar una decisión importante';
+  if (/\bheridas?\b/.test(value)) return 'heridas que aún no han sanado';
+  if (isReassuranceQuestion(value)) return 'tu necesidad de calma frente a lo difuso';
+
+  const summarized = summarizeAnchorPhrase(value);
+  return isGenericAnchor(summarized) ? null : summarized;
+}
+
+function buildPaymentMirror(userText, numerology) {
+  const archetype = getArchetype(numerology?.lifePath) || getArchetype(22);
+
+  if (isReassuranceQuestion(userText)) {
+    const diffuse = /\bdifuso\b/i.test(userText);
+    return pickRandom(
+      diffuse
+        ? [
+            `Entiendo: es algo difuso, y preguntas si vas a estar bien. *${archetype.nombre}* señala un proceso de equilibrio, no un cierre fatal.`,
+            `Lo difuso que sientes es real; tu pregunta por estar bien también. En tu mapa, *${archetype.nombre}* invita a confiar en el paso a paso.`,
+          ]
+        : [
+            `Preguntas si vas a estar bien — es natural cuando algo pesa. *${archetype.nombre}* marca un camino de templanza, no un final cerrado.`,
+            `Tu necesidad de certeza encaja con lo que marcan tus números hoy. *${archetype.nombre}* habla de equilibrio y constancia, no de miedo.`,
+          ]
+    );
+  }
+
+  const anchor = extractAnchorPhrase(userText);
+
+  if (!anchor || isGenericAnchor(anchor)) {
+    return pickRandom([
+      `Lo que compartes hoy encaja con la piedra que frena el río en tu mapa de *${archetype.nombre}*.`,
+      `Siento en tu mensaje un hilo claro que pide ser mirado con mente fría. *${archetype.nombre}* marca ese punto de inflexión.`,
+    ]);
+  }
+
+  return pickRandom([
+    `Esa duda sobre ${anchor} refleja la piedra exacta que hoy detiene tu río.`,
+    `Lo que compartes sobre ${anchor} muestra la piedra que frena el río de tu camino.`,
+    `Lo que nombras sobre ${anchor} se alinea con la piedra que hoy detiene el río de *${archetype.nombre}*.`,
+  ]);
+}
+
+function buildFirstSignalClarification(numerology, userText = '') {
+  const archetype = getArchetype(numerology.lifePath) || getArchetype(22);
+  const signal = archetype.senal_gratuita.replace(/^[A-ZÁÉÍÓÚÑ]/, (c) => c.toLowerCase());
+  const theme = detectUserTheme(userText);
+  const opening = theme ? `${pickThemeOpening(theme, 0)} ` : '';
+
+  return (
+    `${opening}Me refiero a que ${signal}\n\n` +
+    `En tu mapa, esto se enlaza con *${archetype.nombre}*.\n\n` +
+    pickFollowUpQuestion(theme, userText, 0)
+  );
+}
+
+function buildSecondSignalClarification(numerology, userText = '') {
   const archetype = getArchetype(numerology.lifePath) || getArchetype(22);
   const colorArchetype = getArchetype(numerology.dayNumber);
   const color = colorArchetype?.color || numerology.dayColor;
   const colorMeaning = colorArchetype?.significado_color || archetype.significado_color;
+  const meaning = colorMeaning.replace(/^[A-ZÁÉÍÓÚÑ]/, (c) => c.toLowerCase());
+  const theme = detectUserTheme(userText);
+  const opening = theme ? `${pickThemeOpening(theme, 0)} ` : '';
 
   return (
-    `${archetype.emoticon || '✨'} *Primera Señal:* ${archetype.senal_gratuita}\n\n` +
-    `🎨 *Segunda Señal:* El color *${color}* te acompaña hoy, recordándote que ${colorMeaning}\n\n` +
+    `${opening}Me refiero a que el color *${color}* hoy acompaña tu proceso: ${meaning}\n\n` +
+    pickFollowUpQuestion(theme, userText, 0)
+  );
+}
+
+function pickByIndex(items, seed = 0) {
+  if (!items.length) return '';
+  const hash = String(seed)
+    .split('')
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return items[hash % items.length];
+}
+
+const EXPLAIN_PATTERNS = [
+  /qu[eé]\s*significa/i,
+  /qu[eé]\s*quiere\s*decir/i,
+  /expl[ií]came/i,
+  /expl[ií]ca(me)?\s/i,
+  /no\s+entiendo/i,
+  /qu[eé]\s*es\s+eso/i,
+  /what\s+does\s+it\s+mean/i,
+  /\bexplain\b/i,
+];
+
+const THEME_DETECTORS = [
+  {
+    key: 'toxic_relationship',
+    pattern: /relaci[oó]n.*t[oó]xic|t[oó]xic.*relaci[oó]n|relaci[oó]n.*(terminar|cerrar|dejar|posterg)/i,
+    openings: [
+      'Ese vínculo ya te está pidiendo un límite claro.',
+      'Llevas tiempo sintiendo que esa relación drena más de lo que da.',
+      'Tu energía sabe que ese ciclo ya cumplió su tiempo.',
+    ],
+    questions: [
+      '¿Qué es lo que más te frena para cerrar ese ciclo?',
+      '¿Sientes que el miedo o la costumbre es lo que más te ata ahí?',
+      '¿Qué pasaría en tu día a día si mañana dieras ese paso?',
+    ],
+  },
+  {
+    key: 'relationship',
+    pattern: /relaci[oó]n|pareja|novio|novia|\bex\b|amor/i,
+    openings: [
+      'El corazón te está marcando algo que ya no puedes postergar.',
+      'Hay emociones ahí que piden ser nombradas con honestidad.',
+      'En el amor, tus números hoy hablan de claridad, no de prisa.',
+    ],
+    questions: [
+      '¿Qué es lo que más necesitas sentir en esa relación ahora?',
+      '¿Buscas cerrar, sanar o entender mejor lo que pasa?',
+      '¿Qué parte de ese vínculo sientes que más te desgasta?',
+    ],
+  },
+  {
+    key: 'work',
+    pattern:
+      /software|developer|programador|programming|ingenier|career|carrera|profesi|cambiar de trabajo|trabajo nuevo|nuevo empleo|renunciar|buscar trabajo|trabajo|empleo|laboral|jefe|oficina/i,
+    openings: [
+      'El trabajo ocupa tu mente más de lo que admites en voz alta.',
+      'Hay un movimiento laboral rondando tu energía estos días.',
+      'Tus números marcan un momento de evaluar hacia dónde quieres crecer.',
+    ],
+    questions: [
+      '¿Qué es lo que más te impulsa o te frena en ese cambio?',
+      '¿Buscas estabilidad o un giro más grande en lo laboral?',
+      '¿Qué perderías y qué ganarías si das ese paso?',
+    ],
+  },
+  {
+    key: 'money',
+    pattern: /dinero|deuda|econ[oó]m|finanz/i,
+    openings: [
+      'Lo económico te está marcando el ritmo en este momento.',
+      'Hay una tensión con el dinero que pide orden y enfoque.',
+      'Tus números señalan que conviene mirar las finanzas con calma.',
+    ],
+    questions: [
+      '¿Sientes que el bloqueo es falta de oportunidad o de dirección?',
+      '¿Qué área económica te preocupa más hoy?',
+      '¿Buscas estabilizar o crecer en lo material?',
+    ],
+  },
+  {
+    key: 'family',
+    pattern: /familia|padre|madre|hijo|hija|herman/i,
+    openings: [
+      'La familia está tocando fibras sensibles en tu mapa hoy.',
+      'Hay un tema de raíz que pide atención en tu entorno cercano.',
+      'Tus números conectan este momento con lazos muy profundos.',
+    ],
+    questions: [
+      '¿Qué parte de esa dinámica familiar te pesa más?',
+      '¿Buscas distancia, reconciliación o entender mejor lo que pasa?',
+    ],
+  },
+  {
+    key: 'decision',
+    pattern: /decisi[oó]n|posterg|duda|miedo|no s[eé]/i,
+    openings: [
+      'Hay una decisión que ya llevas demasiado tiempo posponiendo.',
+      'Tu mente da vueltas porque intuyes que algo debe moverse.',
+      'El mapa muestra que postergar ya no te protege, solo te agota.',
+    ],
+    questions: [
+      '¿Qué te frena más: el miedo a equivocarte o a perder algo?',
+      '¿Qué pasaría si confiaras en lo que ya sientes por dentro?',
+      '¿Qué necesitas escuchar de ti mismo/a para decidir?',
+    ],
+  },
+];
+
+const GENERAL_OPENINGS = [
+  'Lo que cuentas encaja con la energía que marcan tus números hoy.',
+  'Hay algo en tu mensaje que conecta con la señal que viste.',
+  'Tus números invitan a mirar esto con calma, sin forzar la respuesta.',
+];
+
+const GENERAL_QUESTIONS = [
+  '¿Qué parte de tu vida te gustaría mirar con esta señal: amor, trabajo o una decisión?',
+  '¿Hay algún tema concreto — afectos, trabajo o dinero — que te ronda la mente?',
+  '¿Qué situación tuya te gustaría entender mejor con esta lectura?',
+];
+
+function isExplanationRequest(text) {
+  return EXPLAIN_PATTERNS.some((pattern) => pattern.test(String(text || '')));
+}
+
+function isUncertaintyMessage(text) {
+  const value = String(text || '').trim().toLowerCase();
+  return (
+    /not sure|no s[eé]|no estoy seguro|no mucho|no realmente|no me convence|maybe|tal vez|quiz[aá]s|i don'?t know|idk|who knows|doubt|indecis/i.test(
+      value
+    ) && value.length <= 60
+  );
+}
+
+function isShortAmbiguousMessage(text) {
+  const value = String(text || '').trim();
+  if (!value || value.length > 25) return false;
+  if (value.includes('?')) return false;
+  return /^(sure|ok|okay|yes|yep|yeah|thanks|thank you|gracias|s[ií]|dale|claro|ya|bueno|fine|alright|got it|entendido|va)$/i.test(
+    value
+  );
+}
+
+function isDeclineMessage(text) {
+  const value = String(text || '').trim().toLowerCase();
+  if (!value || value.length > 40) return false;
+  return /^(no|nah|nope|no thanks|no thank you|no gracias|not really|paso|no quiero|don'?t want|not now|ahora no)$/i.test(
+    value
+  );
+}
+
+function isSubstantiveMessage(text) {
+  const value = String(text || '').trim();
+  if (!value) return false;
+  if (isUncertaintyMessage(value) || isShortAmbiguousMessage(value) || isDeclineMessage(value)) {
+    return false;
+  }
+  if (detectUserTheme(value)) return true;
+  return value.length >= 12;
+}
+
+function buildDeclineReply({ step, numerology }) {
+  const nextHint =
+    step === 'after_first_signal'
+      ? 'Si más adelante quieres ver la *siguiente señal* gratis, escríbeme *cuéntame más*.'
+      : 'Si quieres conocer la lectura completa, escríbeme *cuéntame más* y te muestro cómo acceder.';
+
+  return pickByIndex(
+    [
+      `Está bien, no hay prisa. Respeto tu espacio.\n\n${nextHint}`,
+      `Entiendo. No tienes que explorar nada que no quieras hoy.\n\n${nextHint}`,
+    ],
+    numerology.lifePath
+  );
+}
+
+function buildUncertaintyReply({ numerology, turnIndex = 0 }) {
+  const archetype = getArchetype(numerology.lifePath) || getArchetype(22);
+  const metaphors = loadBrain().manual_identidad_linguistica?.metodologia_propia_identidad
+    ?.diccionario_metaforas_andinas;
+
+  return pickByIndex(
+    [
+      `Es normal dudar; la niebla invita a observar con mente fría antes de decidir.\n\n¿Sientes que el freno viene más del pasado o de lo que enfrentas hoy?`,
+      `Está bien no sentirlo fuerte todavía; *${archetype.nombre}* se aclara cuando lo conectas con algo concreto.\n\n¿Prefieres mirar amor, trabajo o dinero?`,
+      metaphors?.incertidumbre
+        ? `${metaphors.incertidumbre}\n\n¿Qué área sientes más movida ahora?`
+        : `Tu señal pide paciencia, no prisa.\n\n¿Qué tema te ronda más hoy?`,
+    ],
+    numerology.lifePath + turnIndex
+  );
+}
+
+function buildShortAckReply({ lastBotMessage = '' }) {
+  if (/claridad|fuerza|permiso|amor.*trabajo|decisi/i.test(lastBotMessage)) {
+    return (
+      'Perfecto. Cuéntame en una frase qué tema te pesa hoy — amor, trabajo, dinero o una decisión — y lo conecto con tu señal.\n\n' +
+      '¿Por cuál empezamos?'
+    );
+  }
+
+  return (
+    'Gracias. Para afinar la lectura, escríbeme qué situación concreta quieres mirar — amor, trabajo, dinero o una decisión.\n\n' +
+    'Cuando quieras ver la siguiente señal, puedes escribir *cuéntame más*.'
+  );
+}
+
+function detectUserTheme(userText) {
+  const value = String(userText || '');
+  return THEME_DETECTORS.find((theme) => theme.pattern.test(value)) || null;
+}
+
+function pickThemeOpening(theme, seed = 0) {
+  if (theme?.openings?.length) return pickByIndex(theme.openings, seed);
+  return pickByIndex(GENERAL_OPENINGS, seed);
+}
+
+function pickFollowUpQuestion(theme, userText, seed = 0) {
+  if (theme?.questions?.length) return pickByIndex(theme.questions, seed + 3);
+  return pickByIndex(GENERAL_QUESTIONS, seed + 5);
+}
+
+function pickConceptSnippet(concepts, seed = 0) {
+  const parts = String(concepts || '')
+    .replace(/\.$/, '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return pickByIndex(parts.length ? parts : ['lo que estás viviendo'], seed + 7);
+}
+
+function buildSignalBridge(archetype, step, numerology, seed = 0) {
+  const concept = pickConceptSnippet(getArchetypeConcepts(archetype), seed);
+  const trilogia = loadBrain().manual_identidad_linguistica?.metodologia_propia_identidad?.ejes;
+
+  if (step === 'after_second_signal') {
+    const color = numerology.color || numerology.dayColor || 'tu color del día';
+    return pickByIndex(
+      [
+        `El *${color}* refuerza que este tema pide calma y enfoque.`,
+        trilogia?.la_piedra
+          ? `La piedra hoy parece ser ${concept.toLowerCase()}; el color te invita a mirarlo sin prisa.`
+          : `Tu color *${color}* acompaña ese proceso con paciencia.`,
+      ],
+      seed + 1
+    );
+  }
+
+  return pickByIndex(
+    [
+      trilogia?.el_rio
+        ? `En tu mapa, el río quiere avanzar pero la piedra marca ${concept.toLowerCase()}.`
+        : `Tu arquetipo *${archetype.nombre}* conecta esto con ${concept.toLowerCase()}.`,
+      `La señal encaja con ${concept.toLowerCase()} en tu camino actual.`,
+    ],
+    seed + 2
+  );
+}
+
+function buildConversationalFunnelReply({
+  step,
+  numerology,
+  userText,
+  turnIndex = 0,
+  lastBotMessage = '',
+}) {
+  const text = String(userText || '').trim();
+  if (!text) {
+    return 'Cuéntame qué sientes al leer esa señal ✨.';
+  }
+
+  if (needsUserClarification(text)) {
+    return buildUserClarificationReply(text);
+  }
+
+  if (isExplanationRequest(text)) {
+    return step === 'after_first_signal'
+      ? buildFirstSignalClarification(numerology, userText)
+      : buildSecondSignalClarification(numerology, userText);
+  }
+
+  if (isDeclineMessage(text)) {
+    return buildDeclineReply({ step, numerology });
+  }
+
+  if (isUncertaintyMessage(text)) {
+    return buildUncertaintyReply({ numerology, turnIndex });
+  }
+
+  if (isShortAmbiguousMessage(text)) {
+    return buildShortAckReply({ lastBotMessage });
+  }
+
+  if (isReassuranceQuestion(text)) {
+    return buildReassuranceFunnelReply(numerology, text);
+  }
+
+  const archetype = getArchetype(numerology.lifePath) || getArchetype(22);
+  const theme = detectUserTheme(text);
+  const seed = numerology.lifePath + turnIndex * 11 + text.length;
+  const opening = pickThemeOpening(theme, seed);
+  const bridge = buildSignalBridge(archetype, step, numerology, seed);
+  const question = pickFollowUpQuestion(theme, userText, seed);
+
+  return `${opening} ${bridge}\n\n${question}`;
+}
+
+/** @deprecated Combined message — use buildFirstFreeSignalMessage + buildSecondFreeSignalMessage */
+function buildFreeSignalsMessage(numerology) {
+  return (
+    `${buildFirstFreeSignalMessage(numerology)}\n\n` +
+    `${buildSecondFreeSignalMessage(numerology)}\n\n` +
     pickRandom(getHookQuestions())
   );
 }
 
-function buildPaymentWallMessage() {
-  return pickRandom(getPaymentWallMessages());
+function buildPaymentWallMessage(userText = '', numerology = null) {
+  if (needsUserClarification(userText)) {
+    return buildUserClarificationReply(userText);
+  }
+
+  const components =
+    getCommercialShield().flujo_cobro_dinamico_sensible?.componentes_ensamblaje;
+
+  if (!components) {
+    return (
+      `${buildPaymentMirror(userText, numerology)}\n\n` +
+      'Apenas estamos viendo la superficie de tus señales y hay un patrón mucho más profundo que merece una lectura completa.\n\n' +
+      'Si deseas abrir tu sesión de 1 hora, la contribución es de *S/ 4.90* vía Yape al *952 989 503*. Quedo aquí en serenidad esperando tu captura para revelarte todo. ¿Te gustaría?'
+    );
+  }
+
+  const mirror = buildPaymentMirror(userText, numerology);
+  const bridge = formatWhatsAppMarkdown(components['2_frase_puente_fija'] || '');
+  const cta = formatWhatsAppMarkdown(components['3_llamado_accion_comercial_fijo'] || '');
+
+  return `${mirror}\n\n${bridge}\n\n${cta}`;
 }
 
 function buildSessionClosing(numerology) {
-  const brain = loadBrain();
-  const closing = brain.blindaje_seguridad_comercial.cierre_y_mantras;
-  const symbol = pickRandom(getMysticSymbols());
+  const farewell = getCommercialShield().validacion_pago?.flujo_despedida_retorno;
+  const closingText =
+    farewell?.texto_referencial ||
+    'Hasta luego. Recuerda que este espacio permanece disponible para ti las 24 horas del día, en sintonía constante con tu caminar para cuando decidas volver.';
 
   return (
-    `${closing.mensaje_cierre_textual}\n\n` +
-    `🎨 *Color del día:* ${numerology.dayColor}\n` +
-    `🔮 *Número de la suerte:* ${numerology.dayNumber}\n` +
-    `🌿 *Símbolo místico:* ${symbol}\n` +
-    `*${closing.bloque_adjunto_final.nombre}*\n` +
-    `'${closing.bloque_adjunto_final.slogan}'`
+    `${closingText}\n\n` +
+    `🎨 *Color protector:* ${numerology.color || numerology.dayColor}\n` +
+    `🔮 *Número de la suerte:* ${numerology.dayNumber}`
+  );
+}
+
+function getUiPolicy() {
+  return loadBrain().politica_interfaz_usuario || {};
+}
+
+function getPaidSessionLengthPolicy() {
+  return (
+    getUiPolicy().longitud_maxima_respuesta ||
+    'Entre 3 y 5 oraciones por mensaje. Desarrolla la lectura con profundidad.'
+  );
+}
+
+function getFreeFunnelLengthPolicy() {
+  return (
+    getUiPolicy().longitud_embudo_gratis ||
+    'Entre 2 y 4 oraciones más una pregunta de enfoque.'
+  );
+}
+
+function buildFreeFunnelChatPrompt(step, numerology) {
+  const brain = loadBrain();
+  const lifeArchetype = getArchetype(numerology.lifePath) || getArchetype(22);
+  const linguistics = brain.manual_identidad_linguistica;
+  const uiPolicy = getUiPolicy();
+
+  const phaseRule =
+    step === 'after_first_signal'
+      ? 'Fase: ventana GRATIS (mensaje 3 del Oráculo). NO menciones pago ni Yape. Desarrolla la respuesta con sustancia; cierra con una pregunta de dos caminos.'
+      : 'Fase: ventana GRATIS final. NO menciones pago ni Yape. El siguiente mensaje del Oráculo será el muro de cobro.';
+
+  return (
+    `Eres El Oráculo Andino — confidente sabio en WhatsApp. Hablas humano, sereno y directo.\n\n` +
+    `IDIOMA: responde en el idioma del usuario (español o inglés).\n\n` +
+    `${phaseRule}\n\n` +
+    `LONGITUD: ${getFreeFunnelLengthPolicy()}\n` +
+    `ESTRUCTURA: ${(uiPolicy?.estructura_mensaje_lectura || []).join(' ')}\n\n` +
+    `METODOLOGÍA (sutil, sin nombrar de golpe): Río = lo que fluye; Piedra = bloqueo; Montaña = evolución.\n\n` +
+    `NUMEROLOGÍA:\n` +
+    `- Camino de vida ${numerology.lifePath}: ${lifeArchetype.nombre}\n` +
+    `- Señal enviada: ${lifeArchetype.senal_gratuita}\n` +
+    `- Color protector 24h: ${lifeArchetype.color || numerology.color}\n\n` +
+    `REGLAS:\n` +
+    `1. Responde SOLO a lo que el usuario acaba de decir; usa sus palabras ancla.\n` +
+    `2. Si el usuario hace una pregunta directa (ej. "¿voy a estar bien?"), respóndela primero antes de profundizar.\n` +
+    `3. Si duda: valida sin insistir ni dar sermones.\n` +
+    `4. Si nombra un tema (trabajo, amor, dinero): habla DE ESO con la numerología.\n` +
+    `5. PROHIBIDO inventar hechos, traiciones, enfermedades o fechas fatales.\n` +
+    `6. PROHIBIDO plantillas genéricas, repetir textualmente al usuario o frases sin sentido.\n` +
+    `7. Tono: ${linguistics.palabras_permitidas.slice(0, 6).join(', ')}. Evita: ${linguistics.palabras_prohibidas.join(', ')}.\n\n` +
+    buildEmbeddedKnowledgeContext()
   );
 }
 
 function buildPaidSessionSystemPrompt() {
   const brain = loadBrain();
-  const instruction = loadInstruction();
+  const linguistics = brain.manual_identidad_linguistica;
+  const uiPolicy = getUiPolicy();
+  const hallucination = brain.blindaje_contra_alucinaciones;
 
   return (
-    `Eres el Oráculo Andino en una sesión de lectura completa PAGADA por WhatsApp (hasta 1 hora).\n\n` +
+    `Eres el Oráculo Andino en una sesión PAGADA por WhatsApp (hasta 1 hora).\n\n` +
+    `ESTADO ACTUAL: El usuario YA pagó. La sesión está ABIERTA. El cobro ya terminó.\n` +
+    `REGLA INQUEBRANTABLE: NUNCA pidas Yape, Plin, captura, comprobante, S/ 4.90, contribución ni "abrir sesión".\n` +
+    `REGLA DE RESPUESTA: Responde PRIMERO la pregunta literal del usuario. Si pregunta de qué pueden hablar o si das consejos, acláralo antes de numerología.\n` +
+    `Las reglas de muro de cobro del embudo gratuito NO aplican en esta sesión.\n\n` +
     `AÑO ACTUAL: ${brain.anio_actual}\n` +
-    `NATURALEZA: ${brain.naturaleza_servicio}\n\n` +
-    `REGLAS DE RESPUESTA:\n` +
-    `- Máximo 2 a 3 frases cortas por mensaje.\n` +
-    `- Estructura: 1) observación numerológica/astrológica, 2) consejo breve positivo, 3) pregunta abierta.\n` +
-    `- Palabras permitidas: ${brain.manual_identidad_linguistica.palabras_permitidas.join(', ')}.\n` +
-    `- Palabras PROHIBIDAS: ${brain.manual_identidad_linguistica.palabras_prohibidas.join(', ')}.\n` +
-    `- No des consejos médicos, legales ni financieros. No predigas tragedias.\n` +
-    `- Precio único: S/4.90 Yape al 952 989 503.\n\n` +
-    `--- REGLAS DE COMPORTAMIENTO (INSTRUCTION_OAN) ---\n\n${instruction}\n\n` +
-    `--- CEREBRO TÉCNICO (oan_fin.json) ---\n\n${JSON.stringify(brain, null, 2)}`
+    `NATURALEZA: ${brain.naturaleza_servicio}\n` +
+    `REGLA PRINCIPAL: ${brain.regla_principal || 'El Oráculo nunca inicia conversación.'}\n\n` +
+    `LONGITUD: ${getPaidSessionLengthPolicy()}\n` +
+    `PROFUNDIDAD: Desarrolla cada respuesta; evita mensajes telegráficos de una sola línea.\n` +
+    `ESTRUCTURA: ${(uiPolicy?.estructura_mensaje_lectura || []).join(' ')}\n` +
+    `METODOLOGÍA: La Trilogía del Caminar (Río, Piedra, Montaña) — úsala con sutileza.\n` +
+    `Palabras permitidas: ${linguistics.palabras_permitidas.join(', ')}.\n` +
+    `Palabras PROHIBIDAS: ${linguistics.palabras_prohibidas.join(', ')}.\n` +
+    `ALUCINACIONES: ${hallucination?.prohibicion_estricta || 'No inventes hechos concretos.'}\n` +
+    `Enfoque válido: ${hallucination?.enfoque_valido || 'Tendencias, emociones y patrones.'}\n\n` +
+    buildPaidSessionKnowledgeContext()
   );
 }
 
@@ -143,11 +948,36 @@ module.exports = {
   getArchetype,
   getWelcomeMessages,
   pickRandom,
+  buildFirstFreeSignalMessage,
+  buildSecondFreeSignalMessage,
+  buildFirstSignalClarification,
+  buildSecondSignalClarification,
+  buildConversationalFunnelReply,
+  buildFreeFunnelChatPrompt,
+  isExplanationRequest,
+  isUncertaintyMessage,
+  isShortAmbiguousMessage,
+  isDeclineMessage,
+  isSubstantiveMessage,
+  detectUserTheme,
   buildFreeSignalsMessage,
   buildPaymentWallMessage,
+  buildPaymentMirror,
+  needsUserClarification,
+  buildUserClarificationReply,
+  buildReassuranceFunnelReply,
+  isReassuranceQuestion,
   buildGreetAndPaymentMessage,
   buildSessionClosing,
   buildPaidSessionSystemPrompt,
+  buildPaidSessionKnowledgeContext,
+  buildPaidSessionScopeReply,
+  buildPaidSessionFallbackReply,
+  isPaymentWallLikeReply,
+  isSessionScopeQuestion,
+  isQuestionChallenge,
+  buildKnowledgeSourceGuard,
+  buildEmbeddedKnowledgeContext,
   getMinorRejectedMessage,
   getPaymentConfirmedMessage,
   getPaymentFreezeMessage,

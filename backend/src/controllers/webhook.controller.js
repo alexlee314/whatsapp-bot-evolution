@@ -1,12 +1,17 @@
 const { config } = require('../config/env');
 const { withReplyCollector } = require('../lib/replyCollector');
+const { withUserLock } = require('../lib/messageLock');
+const { isDuplicateMessageSid } = require('../lib/processedMessages');
 const { parseTwilioWebhook } = require('../utils/webhookParser');
 const { processIncomingMessage } = require('../services/conversationService');
+const { beginTypingForUser } = require('../services/whatsappService');
 const SessionModel = require('../models/SessionModel');
 const WebhookView = require('../views/WebhookView');
 
 async function buildTestResponse(incoming) {
-  const { replies } = await withReplyCollector(() => processIncomingMessage(incoming));
+  const { replies } = await withReplyCollector(() =>
+    withUserLock(incoming.from, () => processIncomingMessage(incoming))
+  );
   const session = await SessionModel.getSession(incoming.from);
 
   return WebhookView.toTestResponse({ incoming, replies, session });
@@ -19,6 +24,10 @@ async function handleWebhook(req, res) {
     return res.status(200).type('text/xml').send(WebhookView.toTwimlEmpty());
   }
 
+  if (isDuplicateMessageSid(incoming.messageSid)) {
+    return res.status(200).type('text/xml').send(WebhookView.toTwimlEmpty());
+  }
+
   try {
     if (config.webhookReturnResponses) {
       const payload = await buildTestResponse(incoming);
@@ -26,7 +35,8 @@ async function handleWebhook(req, res) {
     }
 
     res.status(200).type('text/xml').send(WebhookView.toTwimlEmpty());
-    await processIncomingMessage(incoming);
+    await beginTypingForUser(incoming.from, incoming.messageSid);
+    await withUserLock(incoming.from, () => processIncomingMessage(incoming));
   } catch (err) {
     console.error('Webhook processing error:', err.message);
 

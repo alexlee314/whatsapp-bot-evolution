@@ -1,5 +1,10 @@
 const { getPool } = require('../db');
 const { toDate, toMs } = require('./sessionMapper');
+const {
+  getCachedSession,
+  setCachedSession,
+  invalidateCachedSession,
+} = require('../sessionCache');
 
 function rowToRecord(row) {
   if (!row) return null;
@@ -22,6 +27,7 @@ function rowToRecord(row) {
     paymentData: row.payment_data,
     messageCount: row.message_count,
     messages: row.messages || [],
+    funnelMessages: row.funnel_messages || [],
   };
 }
 
@@ -29,15 +35,20 @@ const SELECT_FIELDS = `
   user_id, state, funnel_version, created_at, last_message_at, expires_at,
   payment_received_at, session_started_at, session_ended_at,
   birth_date, birth_time, location, age_verified,
-  numerology, payment_data, message_count, messages
+  numerology, payment_data, message_count, messages, funnel_messages
 `;
 
 async function getSessionRecord(userId) {
+  const cached = getCachedSession(userId);
+  if (cached) return cached;
+
   const { rows } = await getPool().query(
     `SELECT ${SELECT_FIELDS} FROM sessions WHERE user_id = $1`,
     [userId]
   );
-  return rowToRecord(rows[0]);
+  const session = rowToRecord(rows[0]);
+  if (session) setCachedSession(session);
+  return session;
 }
 
 async function saveSessionRecord(session) {
@@ -46,9 +57,9 @@ async function saveSessionRecord(session) {
       user_id, state, funnel_version, created_at, last_message_at, expires_at,
       payment_received_at, session_started_at, session_ended_at,
       birth_date, birth_time, location, age_verified,
-      numerology, payment_data, message_count, messages
+      numerology, payment_data, message_count, messages, funnel_messages
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
     )
     ON CONFLICT (user_id) DO UPDATE SET
       state = EXCLUDED.state,
@@ -66,7 +77,8 @@ async function saveSessionRecord(session) {
       numerology = EXCLUDED.numerology,
       payment_data = EXCLUDED.payment_data,
       message_count = EXCLUDED.message_count,
-      messages = EXCLUDED.messages`,
+      messages = EXCLUDED.messages,
+      funnel_messages = EXCLUDED.funnel_messages`,
     [
       session.userId,
       session.state,
@@ -85,8 +97,10 @@ async function saveSessionRecord(session) {
       session.paymentData ? JSON.stringify(session.paymentData) : null,
       session.messageCount ?? 0,
       JSON.stringify(session.messages ?? []),
+      JSON.stringify(session.funnelMessages ?? []),
     ]
   );
+  setCachedSession(session);
 }
 
 async function getAllSessionRecords() {

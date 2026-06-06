@@ -1,5 +1,5 @@
 /**
- * Simulates Oráculo Andino 3-step funnel (Twilio webhook).
+ * Simulates Oráculo Andino free funnel (Twilio webhook).
  */
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const axios = require('axios');
@@ -13,24 +13,27 @@ function twilioBody(text) {
 }
 
 async function post(text) {
-  await axios.post(`${BASE}/webhook`, twilioBody(text), { timeout: 10000 });
-  await new Promise((r) => setTimeout(r, 600));
+  await axios.post(`${BASE}/webhook`, twilioBody(text), { timeout: 15000 });
+  await new Promise((r) => setTimeout(r, 800));
 }
 
 async function main() {
-  console.log('Simulating Oráculo Andino 3-step funnel...\n');
+  console.log('Simulating Oráculo Andino free funnel...\n');
 
   await axios.get(`${BASE}/health`);
   console.log('✓ Health OK');
 
-  await post('Hola');
+  await post('reiniciar');
   console.log('✓ Step 1: welcome (birth date request)');
 
   await post('14/02/1995, Lima');
-  console.log('✓ Step 2: free signals + hook question');
+  console.log('✓ Step 2: primera señal + color protector');
 
-  await post('Sí, me describe');
-  console.log('✓ Step 3: payment wall');
+  await post('not sure');
+  console.log('✓ Step 3: ventana gratis (oracle msg 3)');
+
+  await post('thanks a lot');
+  console.log('✓ Step 4: muro de cobro');
 
   const { data } = await axios.get(`${BASE}/dashboard/data`, {
     headers: { 'X-Dashboard-Password': DASH_PASSWORD },

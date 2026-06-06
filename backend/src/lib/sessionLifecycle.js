@@ -30,6 +30,7 @@ function clearedFunnelFields() {
     sessionEndedAt: null,
     expiresAt: null,
     messages: [],
+    funnelMessages: [],
     messageCount: 0,
   };
 }
@@ -75,7 +76,9 @@ function applySessionLifecycle(session, nowMs = Date.now()) {
   const idleMs = nowMs - (normalized.lastMessageAt || normalized.createdAt || nowMs);
 
   if (
-    (normalized.state === SESSION_STATES.AWAITING_HOOK_RESPONSE ||
+    (normalized.state === SESSION_STATES.AWAITING_FREE_SIGNAL_2 ||
+      normalized.state === SESSION_STATES.AWAITING_FREE_SIGNAL_3 ||
+      normalized.state === SESSION_STATES.AWAITING_HOOK_RESPONSE ||
       normalized.state === SESSION_STATES.AWAITING_PAYMENT) &&
     idleMs >= STALE_MID_FUNNEL_MS
   ) {

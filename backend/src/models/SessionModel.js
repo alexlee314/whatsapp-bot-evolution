@@ -10,7 +10,9 @@ const {
 const {
   canonicalUserId,
   applySessionLifecycle,
+  clearedFunnelFields,
 } = require('../lib/sessionLifecycle');
+const { invalidateCachedSession } = require('../lib/sessionCache');
 
 const sessionTimers = new Map();
 
@@ -46,6 +48,11 @@ async function loadSession(userId) {
   return lifecycle;
 }
 
+async function persistSession(session) {
+  await saveSessionRecord(session);
+  return session;
+}
+
 async function getSession(userId) {
   return loadSession(userId);
 }
@@ -69,6 +76,7 @@ async function createSession(userId, state, extra = {}) {
     location: null,
     ageVerified: false,
     numerology: null,
+    funnelMessages: [],
     messages: [],
     messageCount: 0,
     ...extra,
@@ -98,6 +106,34 @@ async function touchSession(userId, extra = {}) {
   });
 }
 
+async function resetSessionForRestart(userId) {
+  const canonical = canonicalUserId(userId);
+  invalidateCachedSession(canonical);
+
+  if (sessionTimers.has(canonical)) {
+    clearTimeout(sessionTimers.get(canonical));
+    sessionTimers.delete(canonical);
+  }
+
+  const now = Date.now();
+  const session = {
+    userId: canonical,
+    state: SESSION_STATES.AWAITING_BIRTH_DATE,
+    funnelVersion: FUNNEL_VERSION,
+    createdAt: now,
+    lastMessageAt: now,
+    expiresAt: null,
+    paymentData: null,
+    paymentReceivedAt: null,
+    sessionStartedAt: null,
+    sessionEndedAt: null,
+    ...clearedFunnelFields(),
+  };
+
+  await saveSessionRecord(session);
+  return session;
+}
+
 async function endSession(userId) {
   if (sessionTimers.has(userId)) {
     clearTimeout(sessionTimers.get(userId));
@@ -114,6 +150,7 @@ async function endSession(userId) {
     expiresAt: null,
     sessionEndedAt: Date.now(),
     messages: session.messages || [],
+    // Keep paymentReceivedAt / paymentData so we never re-show the free payment wall
   });
 }
 
@@ -188,8 +225,10 @@ module.exports = {
   getSession,
   createSession,
   updateSession,
+  persistSession,
   touchSession,
   endSession,
+  resetSessionForRestart,
   scheduleSessionEnd,
   getAllSessions,
   restoreActiveSessionTimers,

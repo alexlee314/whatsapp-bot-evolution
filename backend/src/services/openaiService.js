@@ -1,12 +1,14 @@
+const { config } = require('../config/env');
 const { openai } = require('../lib/clients/openai.client');
-const { buildPaidSessionSystemPrompt } = require('./knowledgeService');
+const { buildPaidSessionSystemPrompt } = require('./oanBrainService');
 const { MESSAGES } = require('../constants/messages');
 
 async function chatWithGPT(messageHistory, options = {}) {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      max_tokens: options.maxTokens || 300,
+      model: config.openaiChatModel,
+      max_tokens: options.maxTokens || config.paidChatMaxTokens,
+      temperature: options.temperature ?? 0.5,
       messages: [
         { role: 'system', content: buildPaidSessionSystemPrompt() },
         ...messageHistory,

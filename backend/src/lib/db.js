@@ -21,8 +21,9 @@ function buildPoolConfig() {
   const options = {
     connectionString,
     max: 10,
+    min: 2,
     idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 8_000,
   };
 
   if (isCloudPostgres(connectionString)) {

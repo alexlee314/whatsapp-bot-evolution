@@ -7,24 +7,10 @@
 
 .card {
   background: var(--card);
-  backdrop-filter: blur(10px);
   border: 1px solid var(--card-border);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 1.25rem;
-  position: relative;
-  overflow: hidden;
   box-shadow: var(--shadow);
-}
-
-.card::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  opacity: 0.6;
 }
 
 .card-label {

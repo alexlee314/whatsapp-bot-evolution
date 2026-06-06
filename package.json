@@ -8,6 +8,7 @@
     "dev": "nodemon backend/src/index.js",
     "test": "node scripts/test-bot.js",
     "test:flow": "node scripts/simulate-flow.js",
+    "test:payment-image": "node scripts/test-payment-image.js",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
     "db:migrate": "node scripts/db-migrate.js",
