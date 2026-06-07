@@ -36,6 +36,10 @@ const {
   isPaymentWallLikeReply,
   isSessionScopeQuestion,
   isQuestionChallenge,
+  isInstitutionalQuestion,
+  buildInstitutionalReply,
+  buildRepurchaseWallMessage,
+  wantsRepurchaseSession,
 } = require('./oanBrainService');
 
 const RESTART_TRIGGERS = ['reiniciar', 'empezar de nuevo', 'start over', 'reset'];
@@ -121,11 +125,17 @@ async function processIncomingMessage({ from, text, hasImage, media, messageSid 
 
     if (session.state === SESSION_STATES.SESSION_ENDED && session.numerology && isRecentSession(session)) {
       if (hasCompletedPayment(session) && !isPaidSessionActive(session)) {
-        await saveAndReply(
-          from,
-          bumpSession(session),
-          MESSAGES.paidSessionExpired
-        );
+        if (text && wantsRepurchaseSession(text)) {
+          const repurchase = buildRepurchaseWallMessage();
+          await saveAndReply(
+            from,
+            bumpSession(session, { state: SESSION_STATES.AWAITING_PAYMENT }),
+            repurchase
+          );
+          return;
+        }
+
+        await saveAndReply(from, bumpSession(session), MESSAGES.paidSessionExpired);
         return;
       }
 
@@ -217,6 +227,18 @@ async function handleFreeSignalStep2(from, text, session) {
 
   const contextualSession = ensureFunnelContext(session, 'after_first_signal');
 
+  if (isInstitutionalQuestion(text)) {
+    const reply = buildInstitutionalReply(contextualSession, text);
+    await saveAndReply(
+      from,
+      bumpSession(contextualSession, {
+        funnelMessages: buildFunnelHistory(contextualSession, text, reply),
+      }),
+      reply
+    );
+    return;
+  }
+
   if (hasCompletedPayment(session)) {
     if (isPaidSessionActive(session)) {
       await handleActiveSession(from, text, session);
@@ -269,6 +291,18 @@ async function handleFreeSignalStep3(from, text, hasImage, media, session) {
   }
 
   const contextualSession = ensureFunnelContext(session, 'after_second_signal');
+
+  if (isInstitutionalQuestion(text)) {
+    const reply = buildInstitutionalReply(contextualSession, text);
+    await saveAndReply(
+      from,
+      bumpSession(contextualSession, {
+        funnelMessages: buildFunnelHistory(contextualSession, text, reply),
+      }),
+      reply
+    );
+    return;
+  }
 
   if (needsUserClarification(text)) {
     const clarification = buildUserClarificationReply(text);
@@ -465,10 +499,13 @@ function buildNumerologyContext(session) {
 
   const locationPart = session.location ? `, Ubicación: ${session.location}` : '';
   const timePart = session.birthTime ? `, Hora de nacimiento: ${session.birthTime}` : '';
+  const astroPart = session.numerology.zodiacSign
+    ? `, Signo: ${session.numerology.zodiacSign} (${session.numerology.zodiacElement || 'elemento'}), Vibración: ${session.numerology.temporalVibration || '—'}`
+    : '';
 
   return (
     `[Contexto numerológico — Número de vida: ${session.numerology.lifePath}, ` +
-    `Año personal: ${session.numerology.personalYear}, Color: ${session.numerology.color}, ` +
+    `Año personal: ${session.numerology.personalYear}, Color: ${session.numerology.color}${astroPart}, ` +
     `Fecha: ${session.birthDate}${timePart}${locationPart}]\n\n`
   );
 }

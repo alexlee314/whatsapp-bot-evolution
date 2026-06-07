@@ -1,11 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const BRAIN_PATH = path.join(__dirname, '../../data/oan_fin.json');
-const INSTRUCTION_PATH = path.join(__dirname, '../../docs/instruction-oan-behavior.txt');
+const BRAIN_PATH = path.join(__dirname, '../../data/oraculo_mind.json');
+const INSTRUCTION_PATH = path.join(__dirname, '../../docs/oraculo_systemprompt.md');
+const ASTRO_DICT_PATH = path.join(__dirname, '../../data/diccionarioastrologico.json');
 
 let cachedBrain = null;
 let cachedInstruction = null;
+let cachedAstroDictionary = null;
 
 function loadBrain() {
   if (cachedBrain) return cachedBrain;
@@ -17,6 +19,29 @@ function loadInstruction() {
   if (cachedInstruction) return cachedInstruction;
   cachedInstruction = fs.readFileSync(INSTRUCTION_PATH, 'utf8');
   return cachedInstruction;
+}
+
+function loadAstroDictionary() {
+  if (cachedAstroDictionary) return cachedAstroDictionary;
+  cachedAstroDictionary = JSON.parse(fs.readFileSync(ASTRO_DICT_PATH, 'utf8'));
+  return cachedAstroDictionary;
+}
+
+function getPaidSessionMinutes() {
+  return loadBrain().duracion_sesion_pagada_minutos || 30;
+}
+
+function getPreCobroArch() {
+  return loadBrain().arquitectura_conversacional_pre_cobro || {};
+}
+
+function getPostCobroArch() {
+  return loadBrain().arquitectura_conversacional_post_cobro || {};
+}
+
+function getLinguistics() {
+  const brain = loadBrain();
+  return brain.manual_linguistico || brain.manual_identidad_linguistica || {};
 }
 
 function pickRandom(items) {
@@ -51,9 +76,9 @@ function formatWhatsAppMarkdown(text) {
 function buildKnowledgeSourceGuard() {
   return (
     `FUENTE DE VERDAD ÚNICA (INQUEBRANTABLE):\n` +
-    `- Solo puedes usar INSTRUCCIONES OFICIALES (instruction-oan-behavior.txt) y CEREBRO TÉCNICO (oan_fin.json) incluidos abajo.\n` +
+    `- Solo puedes usar INSTRUCCIONES OFICIALES (oraculo_systemprompt.md), CEREBRO TÉCNICO (oraculo_mind.json) y DICCIONARIO (diccionarioastrologico.json) incluidos abajo.\n` +
     `- PROHIBIDO buscar en internet, usar navegador, herramientas web, noticias, Wikipedia o cualquier fuente externa.\n` +
-    `- PROHIBIDO apoyarte en conocimiento general, entrenamiento previo o datos que NO aparezcan en esos dos documentos.\n` +
+    `- PROHIBIDO apoyarte en conocimiento general, entrenamiento previo o datos que NO aparezcan en esos documentos.\n` +
     `- PROHIBIDO inventar precios, teléfonos, textos comerciales, arquetipos o reglas que no estén en esos documentos.\n` +
     `- Si el usuario pide algo fuera de los documentos, responde con lo permitido por el blindaje comercial o redirige al hilo sin inventar.\n\n`
   );
@@ -62,23 +87,36 @@ function buildKnowledgeSourceGuard() {
 function buildEmbeddedKnowledgeContext() {
   const brain = loadBrain();
   const instruction = loadInstruction();
+  const astroDictionary = loadAstroDictionary();
 
   return (
     `${buildKnowledgeSourceGuard()}` +
     `--- INSTRUCCIONES OFICIALES ---\n\n${instruction}\n\n` +
-    `--- CEREBRO TÉCNICO (oan_fin.json) ---\n\n${JSON.stringify(brain, null, 2)}`
+    `--- CEREBRO TÉCNICO (oraculo_mind.json) ---\n\n${JSON.stringify(brain, null, 2)}\n\n` +
+    `--- DICCIONARIO ASTROLÓGICO (diccionarioastrologico.json) ---\n\n${JSON.stringify(astroDictionary, null, 2)}`
   );
 }
 
 function stripBrainForPaidSession(brain) {
   const copy = JSON.parse(JSON.stringify(brain));
-  const shield = copy.blindaje_seguridad_comercial;
-  if (!shield) return copy;
+  const pre = copy.arquitectura_conversacional_pre_cobro;
+  if (pre?.mensaje_4_o_5_oraculo) {
+    delete pre.mensaje_4_o_5_oraculo;
+  }
 
-  delete shield.flujo_cobro_dinamico_sensible;
-  if (shield.validacion_pago) {
-    const { recordatorio_congelado, ...restValidation } = shield.validacion_pago;
-    shield.validacion_pago = restValidation;
+  const post = copy.arquitectura_conversacional_post_cobro;
+  if (post) {
+    delete post.candado_espera_comprobante;
+    delete post.flujo_recompra_inmediata;
+  }
+
+  const legacyShield = copy.blindaje_seguridad_comercial;
+  if (legacyShield) {
+    delete legacyShield.flujo_cobro_dinamico_sensible;
+    if (legacyShield.validacion_pago) {
+      const { recordatorio_congelado, ...restValidation } = legacyShield.validacion_pago;
+      legacyShield.validacion_pago = restValidation;
+    }
   }
 
   return copy;
@@ -86,16 +124,16 @@ function stripBrainForPaidSession(brain) {
 
 function buildPaidSessionInstruction() {
   const instruction = loadInstruction();
-  const match = instruction.match(/^([\s\S]*?)## 6\.[\s\S]*?(## 8\.[\s\S]*)$/);
+  const match = instruction.match(/^([\s\S]*?)## 5\.[\s\S]*?(## 8\.[\s\S]*)$/);
   if (!match) return instruction;
 
   return (
     `${match[1].trim()}\n\n` +
-    `## 6. SESIÓN PAGADA ACTIVA (OVERRIDE — PRIORIDAD MÁXIMA)\n` +
-    `* El usuario YA pagó. Su sesión personalizada está ABIERTA ahora.\n` +
+    `## 5. SESIÓN PAGADA ACTIVA (OVERRIDE — PRIORIDAD MÁXIMA)\n` +
+    `* El usuario YA pagó. Su sesión de ${getPaidSessionMinutes()} minutos está ABIERTA.\n` +
     `* PROHIBIDO mencionar Yape, Plin, S/ 4.90, captura, comprobante, contribución o "abrir sesión".\n` +
     `* DEBES responder la pregunta literal del usuario en la primera oración.\n` +
-    `* Puedes dar señales, orientación simbólica y preguntas de enfoque sobre amor, trabajo, dinero o decisiones.\n` +
+    `* Sigue los bloques post-cobro: Río (0-10 min), Piedra (10-20 min), Montaña (20-30 min).\n` +
     `* NO apliques el muro de cobro ni el candado post-cobro del embudo gratuito.\n\n` +
     match[2].trim()
   );
@@ -121,7 +159,7 @@ const PAYMENT_WALL_MARKERS = [
   /captura.*(?:yape|plin|comprobante)/i,
   /env[ií]ame.*captura/i,
   /contribuci[oó]n.*sesi[oó]n/i,
-  /abrir tu sesi[oó]n de 1 hora/i,
+  /abrir tu sesi[oó]n de (?:1 hora|30 minutos)/i,
   /esperando tu captura/i,
   /quedo aqu[ií] en serenidad/i,
   /realiza la colaboraci[oó]n/i,
@@ -169,7 +207,7 @@ function isQuestionChallenge(text) {
 
 function buildPaidSessionScopeReply() {
   return (
-    'En esta sesión podemos explorar a fondo amor, trabajo, dinero, decisiones importantes o lo que hoy te pese en el corazón.\n\n' +
+    'En esta sesión de 30 minutos exploramos a fondo tu mapa en tres bloques: Río (potencial y tránsitos), Piedra (bloqueos ocultos) y Montaña (hoja de ruta + ritual de reciprocidad).\n\n' +
     'Te doy orientación simbólica y numerológica — señales para mirar tu camino con claridad, no predicciones rígidas ni respuestas de sí o no.\n\n' +
     'Sí te acompaño con consejos de enfoque; no reemplazo médico, legal ni contable. ¿Por qué tema quieres empezar?'
   );
@@ -196,14 +234,108 @@ function buildPaidSessionFallbackReply(userText, numerology) {
 }
 
 function getCommercialShield() {
-  return loadBrain().blindaje_seguridad_comercial || {};
+  const pre = getPreCobroArch();
+  const post = getPostCobroArch();
+  const paymentBlock = pre.mensaje_4_o_5_oraculo?.componentes_bloque_pago;
+
+  return {
+    primer_mensaje_registro_ritual: { texto: pre.mensaje_1_oraculo?.texto },
+    flujo_cobro_dinamico_sensible: paymentBlock
+      ? {
+          componentes_ensamblaje: {
+            '1_arranque_variable_y_coherente': paymentBlock['1_espejo_diagnostico_dinamico'],
+            '2_frase_puente_fija': paymentBlock['2_frase_puente_variable'],
+            '3_llamado_accion_comercial_fijo': paymentBlock['3_cta_comercial_fijo'],
+          },
+        }
+      : {},
+    validacion_pago: {
+      recordatorio_congelado: post.candado_espera_comprobante,
+      flujo_despedida_retorno: {
+        texto_referencial: post.gatillo_cierre_min_30?.texto_salida_fijo,
+      },
+    },
+    filtro_edad: loadBrain().validacion_pago?.filtro_edad,
+  };
+}
+
+function normalizeInstitutionalText(text) {
+  return String(text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isInstitutionalQuestion(text) {
+  const normalized = normalizeInstitutionalText(text);
+  const triggers = loadBrain().gestion_dudas_institucionales?.disparadores || [];
+  return triggers.some((trigger) => normalized.includes(normalizeInstitutionalText(trigger)));
+}
+
+function buildInstitutionalReengagement(session) {
+  const messages = session?.funnelMessages || [];
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role === 'user') {
+      const value = String(messages[index].content || '').trim();
+      if (value.length >= 8) {
+        return value.length <= 90 ? value : `${value.slice(0, 87).trim()}...`;
+      }
+    }
+  }
+
+  return 'lo que hoy pesa en tu corazón';
+}
+
+function buildInstitutionalReply(session, userText = '') {
+  const matrix = loadBrain().gestion_dudas_institucionales?.matriz_respuesta_autoridad;
+  if (!matrix) {
+    return (
+      'El Oráculo Andino es un espacio de acompañamiento espiritual y autoconocimiento con numerología y astrología elemental.\n\n' +
+      'Nuestra sesión completa dura 30 minutos en tres bloques de 10 minutos: Río, Piedra y Montaña.\n\n' +
+      `Volviendo a tus señales, ${buildInstitutionalReengagement(session)} sigue pidiendo ser mirado con mente fría.`
+    );
+  }
+
+  const reenganche = buildInstitutionalReengagement(session);
+  const closing = String(matrix.oracion_3_reenganche_contextual || '').replace(
+    /\[Insertar reenganche[^\]]*\]/i,
+    reenganche
+  );
+
+  return [
+    matrix.oracion_1_identidad,
+    matrix.oracion_2_estructura_tangible,
+    closing,
+  ].join('\n\n');
+}
+
+function buildRepurchaseWallMessage() {
+  const flow = getPostCobroArch().flujo_recompra_inmediata?.componentes;
+  if (!flow) {
+    return (
+      'Me alegra que tu río busque seguir profundizando en sus señales para abrir nuevos caminos.\n\n' +
+      'Para habilitar una nueva sesión de 30 minutos, puedes enviar tu Yape de *S/ 4.90* al *952 989 503*. Quedo en serenidad esperando tu nueva captura.'
+    );
+  }
+
+  return `${formatWhatsAppMarkdown(flow['1_validacion'])}\n\n${formatWhatsAppMarkdown(flow['2_cta_recompra'])}`;
+}
+
+function wantsRepurchaseSession(text) {
+  const value = normalizeInstitutionalText(text);
+  return /(mas tiempo|m[aá]s tiempo|otra sesi[oó]n|continuar la lectura|seguir leyendo|extender|renovar sesi[oó]n|quiero pagar otra|new session|more time)/i.test(
+    value
+  );
 }
 
 function getGreetAndPaymentMessages() {
   return [
-    'El Oráculo Andino te saluda ✨ Para abrir tu sesión personalizada de 1 hora sobre amor, dinero o tus proyectos, realiza la colaboración de *S/ 4.90* vía Yape al *952 989 503* y envíame la captura de tu comprobante.',
-    'Qué bueno que escribas ✨ El Oráculo Andino te acompaña con una sesión de hasta 1 hora. Para acceder, envía *S/ 4.90* por Yape al *952 989 503* y comparte la foto de tu constancia aquí.',
-    'Bienvenido al Oráculo Andino ✨ Tu lectura personalizada de 1 hora ya puede iniciarse. Realiza *S/ 4.90* vía Yape al *952 989 503* y envíame la captura para abrir tu sesión hoy.',
+    'El Oráculo Andino te saluda ✨ Para abrir tu sesión personalizada de 30 minutos sobre amor, dinero o tus proyectos, realiza la colaboración de *S/ 4.90* vía Yape al *952 989 503* y envíame la captura de tu comprobante.',
+    'Qué bueno que escribas ✨ El Oráculo Andino te acompaña con una sesión de hasta 30 minutos. Para acceder, envía *S/ 4.90* por Yape al *952 989 503* y comparte la foto de tu constancia aquí.',
+    'Bienvenido al Oráculo Andino ✨ Tu lectura personalizada de 30 minutos ya puede iniciarse. Realiza *S/ 4.90* vía Yape al *952 989 503* y envíame la captura para abrir tu sesión hoy.',
   ];
 }
 
@@ -212,7 +344,9 @@ function buildGreetAndPaymentMessage() {
 }
 
 function getWelcomeMessages() {
-  const ritual = getCommercialShield().primer_mensaje_registro_ritual?.texto;
+  const ritual =
+    getPreCobroArch().mensaje_1_oraculo?.texto ||
+    getCommercialShield().primer_mensaje_registro_ritual?.texto;
   if (ritual) return [formatWhatsAppMarkdown(ritual)];
 
   return [
@@ -256,17 +390,23 @@ function getHookQuestions() {
 
 function getMinorRejectedMessage() {
   return (
+    loadBrain().validacion_pago?.filtro_edad?.regla_menor ||
     getCommercialShield().filtro_edad?.regla_menor ||
     'El Oráculo Andino es un espacio reservado para adultos. No me es posible continuar con la lectura, pero te envío una señal de armonía y buena energía ✨.'
   );
 }
 
 function getPaymentConfirmedMessage() {
-  return loadBrain().blindaje_seguridad_comercial.validacion_pago.mensaje_exito;
+  return (
+    loadBrain().validacion_pago?.mensaje_exito ||
+    'Agradezco tu reciprocidad ✨ Tu energía se integra armónicamente al Oráculo Andino. Demos inicio formal a tu sesión de 30 minutos.'
+  );
 }
 
 function getPaymentFreezeMessage() {
-  const reminder = getCommercialShield().validacion_pago?.recordatorio_congelado;
+  const reminder =
+    getPostCobroArch().candado_espera_comprobante ||
+    getCommercialShield().validacion_pago?.recordatorio_congelado;
   if (reminder) return formatWhatsAppMarkdown(reminder);
 
   return 'Para continuar con la interpretación detallada de tu mapa, envíame la captura de tu Yape de *S/ 4.90* al *952 989 503*. Las señales ya se encuentran dispuestas para ti.';
@@ -839,7 +979,7 @@ function buildPaymentWallMessage(userText = '', numerology = null) {
     return (
       `${buildPaymentMirror(userText, numerology)}\n\n` +
       'Apenas estamos viendo la superficie de tus señales y hay un patrón mucho más profundo que merece una lectura completa.\n\n' +
-      'Si deseas abrir tu sesión de 1 hora, la contribución es de *S/ 4.90* vía Yape al *952 989 503*. Quedo aquí en serenidad esperando tu captura para revelarte todo. ¿Te gustaría?'
+      'Si deseas abrir tu sesión de 30 minutos, la contribución es de *S/ 4.90* vía Yape al *952 989 503*. Quedo aquí en serenidad esperando tu captura para revelarte todo. ¿Te gustaría?'
     );
   }
 
@@ -851,10 +991,10 @@ function buildPaymentWallMessage(userText = '', numerology = null) {
 }
 
 function buildSessionClosing(numerology) {
-  const farewell = getCommercialShield().validacion_pago?.flujo_despedida_retorno;
   const closingText =
-    farewell?.texto_referencial ||
-    'Hasta luego. Recuerda que este espacio permanece disponible para ti las 24 horas del día, en sintonía constante con tu caminar para cuando decidas volver.';
+    getPostCobroArch().gatillo_cierre_min_30?.texto_salida_fijo ||
+    getCommercialShield().validacion_pago?.flujo_despedida_retorno?.texto_referencial ||
+    'Tu sesión de 30 minutos ha culminado con armonía. Tu color protector está activo por 24 horas y el Oráculo queda aquí en sintonía con tu caminar para cuando decidas volver. Hasta luego.';
 
   return (
     `${closingText}\n\n` +
@@ -864,7 +1004,22 @@ function buildSessionClosing(numerology) {
 }
 
 function getUiPolicy() {
-  return loadBrain().politica_interfaz_usuario || {};
+  const brain = loadBrain();
+  if (brain.politicas_longitud) {
+    const pre = brain.politicas_longitud.fase_pre_cobro || {};
+    const post = brain.politicas_longitud.fase_post_cobro || {};
+    return {
+      longitud_embudo_gratis: `Entre ${pre.min_palabras || 35} y ${pre.max_palabras || 75} palabras (${pre.oraciones || 3} oraciones).`,
+      longitud_maxima_respuesta: `Entre ${post.min_palabras || 50} y ${post.max_palabras || 100} palabras (máximo ${post.oraciones || 4} oraciones).`,
+      estructura_mensaje_lectura: [
+        'Oración 1 (Espejo): validación con palabras ancla + metáfora andina.',
+        'Oración 2 (Loop abierto): diagnóstico causal sin soluciones prematuras.',
+        'Oración 3 (Bifurcación): pregunta cerrada de dos opuestos emocionales.',
+      ],
+    };
+  }
+
+  return brain.politica_interfaz_usuario || {};
 }
 
 function getPaidSessionLengthPolicy() {
@@ -882,60 +1037,65 @@ function getFreeFunnelLengthPolicy() {
 }
 
 function buildFreeFunnelChatPrompt(step, numerology) {
-  const brain = loadBrain();
   const lifeArchetype = getArchetype(numerology.lifePath) || getArchetype(22);
-  const linguistics = brain.manual_identidad_linguistica;
+  const linguistics = getLinguistics();
   const uiPolicy = getUiPolicy();
+  const pre = getPreCobroArch();
 
   const phaseRule =
     step === 'after_first_signal'
-      ? 'Fase: ventana GRATIS (mensaje 3 del Oráculo). NO menciones pago ni Yape. Desarrolla la respuesta con sustancia; cierra con una pregunta de dos caminos.'
-      : 'Fase: ventana GRATIS final. NO menciones pago ni Yape. El siguiente mensaje del Oráculo será el muro de cobro.';
+      ? `Fase: ${pre.mensaje_3_oraculo?.tipo || 'AISLAMIENTO_RAÍZ'} — ${pre.mensaje_3_oraculo?.regla || 'Aislar la Piedra con dilema interno y bifurcación A/B.'} NO menciones pago ni Yape.`
+      : `Fase: ${pre.mensaje_2_oraculo?.tipo || 'LECTURA_SUPERFICIE'} — ${pre.mensaje_2_oraculo?.regla || 'Mapear el Río con espejo + loop abierto + bifurcación.'} NO menciones pago ni Yape.`;
+
+  const astroLine = numerology.zodiacSign
+    ? `- Signo: ${numerology.zodiacSign} (${numerology.zodiacElement || 'elemento'})\n`
+    : '';
 
   return (
-    `Eres El Oráculo Andino — confidente sabio en WhatsApp. Hablas humano, sereno y directo.\n\n` +
+    `Eres El Oráculo Andino — guía sabio en WhatsApp. Hablas humano, sereno y contextualizado.\n\n` +
+    `AÑO ACTUAL: ${new Date().getFullYear()} (usar siempre el año del servidor, nunca un año fijo).\n\n` +
     `IDIOMA: responde en el idioma del usuario (español o inglés).\n\n` +
     `${phaseRule}\n\n` +
     `LONGITUD: ${getFreeFunnelLengthPolicy()}\n` +
     `ESTRUCTURA: ${(uiPolicy?.estructura_mensaje_lectura || []).join(' ')}\n\n` +
-    `METODOLOGÍA (sutil, sin nombrar de golpe): Río = lo que fluye; Piedra = bloqueo; Montaña = evolución.\n\n` +
+    `METODOLOGÍA: Río = lo que fluye; Piedra = bloqueo; Montaña = evolución.\n\n` +
     `NUMEROLOGÍA:\n` +
     `- Camino de vida ${numerology.lifePath}: ${lifeArchetype.nombre}\n` +
     `- Señal enviada: ${lifeArchetype.senal_gratuita}\n` +
-    `- Color protector 24h: ${lifeArchetype.color || numerology.color}\n\n` +
-    `REGLAS:\n` +
+    `- Color protector 24h: ${lifeArchetype.color || numerology.color}\n` +
+    astroLine +
+    `\nREGLAS:\n` +
     `1. Responde SOLO a lo que el usuario acaba de decir; usa sus palabras ancla.\n` +
-    `2. Si el usuario hace una pregunta directa (ej. "¿voy a estar bien?"), respóndela primero antes de profundizar.\n` +
-    `3. Si duda: valida sin insistir ni dar sermones.\n` +
-    `4. Si nombra un tema (trabajo, amor, dinero): habla DE ESO con la numerología.\n` +
-    `5. PROHIBIDO inventar hechos, traiciones, enfermedades o fechas fatales.\n` +
-    `6. PROHIBIDO plantillas genéricas, repetir textualmente al usuario o frases sin sentido.\n` +
-    `7. Tono: ${linguistics.palabras_permitidas.slice(0, 6).join(', ')}. Evita: ${linguistics.palabras_prohibidas.join(', ')}.\n\n` +
+    `2. Si el usuario hace una pregunta directa, respóndela primero antes de profundizar.\n` +
+    `3. PROHIBIDO plantillas genéricas, repetir textualmente al usuario o frases sin sentido.\n` +
+    `4. Tono: ${(linguistics.palabras_permitidas || []).slice(0, 8).join(', ')}. Evita: ${(linguistics.palabras_prohibidas || []).join(', ')}.\n\n` +
     buildEmbeddedKnowledgeContext()
   );
 }
 
 function buildPaidSessionSystemPrompt() {
   const brain = loadBrain();
-  const linguistics = brain.manual_identidad_linguistica;
+  const linguistics = getLinguistics();
   const uiPolicy = getUiPolicy();
   const hallucination = brain.blindaje_contra_alucinaciones;
+  const post = getPostCobroArch();
+  const minutes = getPaidSessionMinutes();
 
   return (
-    `Eres el Oráculo Andino en una sesión PAGADA por WhatsApp (hasta 1 hora).\n\n` +
+    `Eres el Oráculo Andino en una sesión PAGADA por WhatsApp (${minutes} minutos).\n\n` +
+    `AÑO ACTUAL: ${new Date().getFullYear()} (usar siempre el año del servidor, nunca un año fijo).\n\n` +
     `ESTADO ACTUAL: El usuario YA pagó. La sesión está ABIERTA. El cobro ya terminó.\n` +
     `REGLA INQUEBRANTABLE: NUNCA pidas Yape, Plin, captura, comprobante, S/ 4.90, contribución ni "abrir sesión".\n` +
-    `REGLA DE RESPUESTA: Responde PRIMERO la pregunta literal del usuario. Si pregunta de qué pueden hablar o si das consejos, acláralo antes de numerología.\n` +
-    `Las reglas de muro de cobro del embudo gratuito NO aplican en esta sesión.\n\n` +
-    `AÑO ACTUAL: ${brain.anio_actual}\n` +
-    `NATURALEZA: ${brain.naturaleza_servicio}\n` +
-    `REGLA PRINCIPAL: ${brain.regla_principal || 'El Oráculo nunca inicia conversación.'}\n\n` +
+    `REGLA DE RESPUESTA: Responde PRIMERO la pregunta literal del usuario.\n` +
+    `BLOQUES POST-COBRO:\n` +
+    `- 0-10 min: ${post.bloque_1_min_0_10?.fase || 'El Desglose del Río'} — ${post.bloque_1_min_0_10?.ejecucion || ''}\n` +
+    `- 10-20 min: ${post.bloque_2_min_10_20?.fase || 'La Extracción de la Piedra'} — ${post.bloque_2_min_10_20?.ejecucion || ''}\n` +
+    `- 20-30 min: ${post.bloque_3_min_20_30?.fase || 'La Conquista de la Montaña'} — ${post.bloque_3_min_20_30?.ejecucion || ''}\n\n` +
     `LONGITUD: ${getPaidSessionLengthPolicy()}\n` +
-    `PROFUNDIDAD: Desarrolla cada respuesta; evita mensajes telegráficos de una sola línea.\n` +
+    `PROFUNDIDAD: Desarrolla cada respuesta; evita mensajes telegráficos.\n` +
     `ESTRUCTURA: ${(uiPolicy?.estructura_mensaje_lectura || []).join(' ')}\n` +
-    `METODOLOGÍA: La Trilogía del Caminar (Río, Piedra, Montaña) — úsala con sutileza.\n` +
-    `Palabras permitidas: ${linguistics.palabras_permitidas.join(', ')}.\n` +
-    `Palabras PROHIBIDAS: ${linguistics.palabras_prohibidas.join(', ')}.\n` +
+    `Palabras permitidas: ${(linguistics.palabras_permitidas || []).join(', ')}.\n` +
+    `Palabras PROHIBIDAS: ${(linguistics.palabras_prohibidas || []).join(', ')}.\n` +
     `ALUCINACIONES: ${hallucination?.prohibicion_estricta || 'No inventes hechos concretos.'}\n` +
     `Enfoque válido: ${hallucination?.enfoque_valido || 'Tendencias, emociones y patrones.'}\n\n` +
     buildPaidSessionKnowledgeContext()
@@ -976,6 +1136,11 @@ module.exports = {
   isPaymentWallLikeReply,
   isSessionScopeQuestion,
   isQuestionChallenge,
+  isInstitutionalQuestion,
+  buildInstitutionalReply,
+  buildRepurchaseWallMessage,
+  wantsRepurchaseSession,
+  loadAstroDictionary,
   buildKnowledgeSourceGuard,
   buildEmbeddedKnowledgeContext,
   getMinorRejectedMessage,
@@ -983,4 +1148,5 @@ module.exports = {
   getPaymentFreezeMessage,
   BRAIN_PATH,
   INSTRUCTION_PATH,
+  ASTRO_DICT_PATH,
 };

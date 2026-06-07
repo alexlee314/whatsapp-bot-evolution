@@ -1,4 +1,5 @@
 const { SESSION_END_TRIGGERS } = require('../../constants/numerologyData');
+const { loadMonthMapFromDictionary } = require('../astrology/birthDateDictionary');
 
 const MONTH_BY_NAME = {
   enero: 1,
@@ -37,6 +38,7 @@ const MONTH_BY_NAME = {
   diciembre: 12,
   december: 12,
   dec: 12,
+  ...loadMonthMapFromDictionary(),
 };
 
 const MONTH_NAME_PATTERN = Object.keys(MONTH_BY_NAME).join('|');

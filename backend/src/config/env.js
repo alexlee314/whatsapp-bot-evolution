@@ -12,15 +12,15 @@ const config = {
   sessionStore: (process.env.SESSION_STORE || 'auto').toLowerCase(),
   databasePath: process.env.DATABASE_PATH || null,
   twilioTypingIndicator: process.env.TWILIO_TYPING_INDICATOR !== 'false',
-  /** Paid session length after Yape validation (default 1 hour). Use e.g. 120000 for 2-minute tests. */
+  /** Paid session length after Yape validation (default 30 minutes). Override with SESSION_DURATION_MS. */
   sessionDurationMs:
     Number(process.env.SESSION_DURATION_MS) > 0
       ? Number(process.env.SESSION_DURATION_MS)
-      : 60 * 60 * 1000,
+      : 30 * 60 * 1000,
   sessionWarningMinutes:
     Number(process.env.SESSION_WARNING_MINUTES) >= 0
       ? Number(process.env.SESSION_WARNING_MINUTES)
-      : 10,
+      : 5,
   /** Max GPT tokens for paid session replies */
   paidChatMaxTokens:
     Number(process.env.OPENAI_PAID_CHAT_MAX_TOKENS) > 0

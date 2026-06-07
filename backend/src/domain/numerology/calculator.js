@@ -40,6 +40,8 @@ function getSignal1Key(lifePath, dayNumber) {
   return reduceNumber(dayNumber);
 }
 
+const { resolveZodiacSign } = require('../astrology/zodiac');
+
 function calculateNumerology(day, month, year) {
   const dateDigits = `${String(day).padStart(2, '0')}${String(month).padStart(2, '0')}${year}`;
   const lifePathSum = dateDigits.split('').reduce((acc, d) => acc + Number(d), 0);
@@ -47,6 +49,7 @@ function calculateNumerology(day, month, year) {
 
   const personalYear = calculatePersonalYear(day, month);
   const dayNumber = calculateDayNumber(day, month);
+  const zodiac = resolveZodiacSign(day, month);
 
   const lifeProfile = NUMBER_MEANINGS[lifePath] || NUMBER_MEANINGS[reduceNumber(lifePath)];
   const dayProfile = NUMBER_MEANINGS[dayNumber] || NUMBER_MEANINGS[reduceNumber(dayNumber)];
@@ -59,6 +62,9 @@ function calculateNumerology(day, month, year) {
     numberMeaning: lifeProfile.meaning,
     dayColor: dayProfile.color,
     birthDateLabel: `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`,
+    zodiacSign: zodiac.sign,
+    zodiacElement: zodiac.element,
+    temporalVibration: zodiac.vibracion,
   };
 }
 
