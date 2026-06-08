@@ -205,6 +205,27 @@ function wantsToEndSession(text) {
   return SESSION_END_TRIGGERS.some((trigger) => lower.includes(trigger));
 }
 
+const GREETING_PATTERN =
+  /^(?:hola|hi|hello|hey|buenas|buenos dias|buenas tardes|buenas noches|saludos|ola|good morning|good afternoon|good evening)[\s!.?]*$/i;
+
+const CLARIFICATION_PATTERN =
+  /no me la pediste|no me la (?:has )?pedido|(?:que|qué) fecha|para qu[eé]|por qu[eé]|what date|didn['']t ask/i;
+
+function isCasualGreeting(text) {
+  return GREETING_PATTERN.test(String(text || '').trim());
+}
+
+function isBirthDateClarificationQuestion(text) {
+  return CLARIFICATION_PATTERN.test(String(text || '').trim());
+}
+
+function looksLikeBirthDateAttempt(text) {
+  const value = String(text || '').trim();
+  if (!value) return false;
+  if (/\d/.test(value)) return true;
+  return new RegExp(MONTH_NAME_PATTERN, 'i').test(value);
+}
+
 module.exports = {
   parseBirthDate,
   parseBirthDateLocal,
@@ -212,4 +233,7 @@ module.exports = {
   parseRemainder,
   calculateAge,
   wantsToEndSession,
+  isCasualGreeting,
+  isBirthDateClarificationQuestion,
+  looksLikeBirthDateAttempt,
 };

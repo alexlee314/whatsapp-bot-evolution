@@ -28,6 +28,9 @@ const MESSAGES = {
   birthDateRequired:
     'Cuando estés listo, compárteme tu *fecha de nacimiento* junto a tu *ciudad actual*, y comenzaremos a observar tus señales ✨.',
 
+  birthDateClarification:
+    'Perdona si sonó confuso ✨ Para abrir tu lectura necesito tu *fecha de nacimiento* y, si puedes, tu *ciudad actual*. Escríbelas cuando quieras.',
+
   birthDateInvalid:
     'No logré leer tu fecha. Escríbela como prefieras — en español o inglés — y puedes incluir hora y ciudad en el mismo mensaje ✨ (ej.: 4 de mayo 1980, 3pm, Lima · 4 of may 1980 born at noon in Cusco).',
 

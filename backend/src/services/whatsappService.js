@@ -1,7 +1,9 @@
 const axios = require('axios');
 const { config, isTwilioConfigured } = require('../config/env');
-const { getTwilioClient, getWhatsAppFrom } = require('../lib/clients/twilio.client');
+const { getTwilioClient } = require('../lib/clients/twilio.client');
+const { getActiveReplyFrom } = require('../lib/replyContext');
 const { recordReply } = require('../lib/replyCollector');
+const { withTimeout } = require('../lib/withTimeout');
 
 const typingSessions = new Map();
 
@@ -41,7 +43,7 @@ function clearTypingSession(userId) {
   typingSessions.delete(userId);
 }
 
-async function sendTypingIndicator(messageSid, { retry = true } = {}) {
+async function sendTypingIndicator(messageSid) {
   if (!messageSid || config.webhookReturnResponses || !isTwilioConfigured()) {
     return false;
   }
@@ -62,25 +64,21 @@ async function sendTypingIndicator(messageSid, { retry = true } = {}) {
     await axios.post('https://messaging.twilio.com/v2/Indicators/Typing.json', params.toString(), {
       auth: { username: accountSid, password: authToken },
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      timeout: 8000,
+      timeout: 5000,
     });
     return true;
   } catch (err) {
     const detail = err?.response?.data?.message || err?.message;
     console.error('Twilio typing indicator error:', detail);
-
-    if (retry) {
-      await sleep(1000);
-      return sendTypingIndicator(messageSid, { retry: false });
-    }
-
     return false;
   }
 }
 
 async function beginTypingForUser(userId, messageSid) {
-  beginTypingSession(userId, messageSid);
-  await sendTypingIndicator(messageSid);
+  const ok = await sendTypingIndicator(messageSid);
+  if (ok) {
+    beginTypingSession(userId, messageSid);
+  }
 }
 
 async function refreshTypingForUser(userId) {
@@ -123,18 +121,32 @@ async function sendTextMessage(to, text) {
   }
 
   if (!isTwilioConfigured()) {
+    console.error('Twilio send skipped: not configured');
     clearTypingSession(to);
     return;
   }
 
+  const from = getActiveReplyFrom();
+  const toAddress = ensureWhatsAppAddress(to);
+
   try {
-    await getTwilioClient().messages.create({
-      from: getWhatsAppFrom(),
-      to: ensureWhatsAppAddress(to),
-      body: text,
-    });
+    const message = await withTimeout(
+      getTwilioClient().messages.create({
+        from,
+        to: toAddress,
+        body: text,
+      }),
+      15000,
+      'Twilio send'
+    );
+    console.log('Twilio sent:', { from, to: toAddress, sid: message.sid, len: text.length });
   } catch (err) {
-    console.error('Twilio send error:', err?.message || err);
+    console.error('Twilio send error:', {
+      code: err.code,
+      message: err.message,
+      from,
+      to: toAddress,
+    });
   } finally {
     clearTypingSession(to);
   }

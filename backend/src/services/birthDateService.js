@@ -1,6 +1,10 @@
 const { openai } = require('../lib/clients/openai.client');
 const { config } = require('../config/env');
-const { parseBirthDateLocal, buildBirthDateResult } = require('../domain/numerology/parser');
+const {
+  parseBirthDateLocal,
+  buildBirthDateResult,
+  looksLikeBirthDateAttempt,
+} = require('../domain/numerology/parser');
 
 const BIRTH_DATE_EXTRACTION_PROMPT = `Extract birth date from the user message only. JSON only:
 {"success":true|false,"day":1-31,"month":1-12,"year":4-digit,"timeOfBirth":string|null,"location":string|null}
@@ -47,6 +51,8 @@ async function parseBirthDateFlexible(text) {
 
   const local = parseBirthDateLocal(trimmed);
   if (local) return local;
+
+  if (!looksLikeBirthDateAttempt(trimmed)) return null;
 
   return extractBirthDateWithGPT(trimmed);
 }

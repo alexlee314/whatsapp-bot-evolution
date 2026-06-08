@@ -1,7 +1,10 @@
 const { Pool } = require('pg');
 const { config } = require('../config/env');
+const { withTimeout } = require('./withTimeout');
 
 let pool = null;
+
+const DEFAULT_QUERY_TIMEOUT_MS = Number(process.env.DB_QUERY_TIMEOUT_MS) || 6000;
 
 function isCloudPostgres(connectionString) {
   return (
@@ -21,7 +24,7 @@ function buildPoolConfig() {
   const options = {
     connectionString,
     max: 10,
-    min: 2,
+    min: 0,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 8_000,
   };
@@ -59,4 +62,8 @@ async function disconnectDb() {
   }
 }
 
-module.exports = { getPool, connectDb, disconnectDb, isCloudPostgres };
+async function queryWithTimeout(text, params, timeoutMs = DEFAULT_QUERY_TIMEOUT_MS) {
+  return withTimeout(getPool().query(text, params), timeoutMs, 'PostgreSQL query');
+}
+
+module.exports = { getPool, connectDb, disconnectDb, isCloudPostgres, queryWithTimeout, DEFAULT_QUERY_TIMEOUT_MS };

@@ -11,7 +11,7 @@ const config = {
   databaseUrl: process.env.DATABASE_URL || null,
   sessionStore: (process.env.SESSION_STORE || 'auto').toLowerCase(),
   databasePath: process.env.DATABASE_PATH || null,
-  twilioTypingIndicator: process.env.TWILIO_TYPING_INDICATOR !== 'false',
+  twilioTypingIndicator: process.env.TWILIO_TYPING_INDICATOR === 'true',
   /** Paid session length after Yape validation (default 30 minutes). Override with SESSION_DURATION_MS. */
   sessionDurationMs:
     Number(process.env.SESSION_DURATION_MS) > 0

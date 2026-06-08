@@ -1,4 +1,4 @@
-const { getPool } = require('../db');
+const { queryWithTimeout } = require('../db');
 const { toDate, toMs } = require('./sessionMapper');
 const {
   getCachedSession,
@@ -42,7 +42,7 @@ async function getSessionRecord(userId) {
   const cached = getCachedSession(userId);
   if (cached) return cached;
 
-  const { rows } = await getPool().query(
+  const { rows } = await queryWithTimeout(
     `SELECT ${SELECT_FIELDS} FROM sessions WHERE user_id = $1`,
     [userId]
   );
@@ -52,7 +52,7 @@ async function getSessionRecord(userId) {
 }
 
 async function saveSessionRecord(session) {
-  await getPool().query(
+  await queryWithTimeout(
     `INSERT INTO sessions (
       user_id, state, funnel_version, created_at, last_message_at, expires_at,
       payment_received_at, session_started_at, session_ended_at,
@@ -104,14 +104,14 @@ async function saveSessionRecord(session) {
 }
 
 async function getAllSessionRecords() {
-  const { rows } = await getPool().query(
+  const { rows } = await queryWithTimeout(
     `SELECT ${SELECT_FIELDS} FROM sessions ORDER BY last_message_at DESC`
   );
   return rows.map(rowToRecord);
 }
 
 async function findExpiredActiveSessions(state, nowMs) {
-  const { rows } = await getPool().query(
+  const { rows } = await queryWithTimeout(
     `SELECT ${SELECT_FIELDS} FROM sessions
      WHERE state = $1 AND expires_at IS NOT NULL AND expires_at <= $2`,
     [state, toDate(nowMs)]

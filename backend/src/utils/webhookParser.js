@@ -21,6 +21,7 @@ function parseTwilioWebhook(body) {
   }
 
   const from = normalizeWhatsAppFrom(body.From);
+  const to = normalizeWhatsAppFrom(body.To);
   const text = (body.Body || '').trim();
   const numMedia = Number(body.NumMedia || 0);
   const mediaUrl = body.MediaUrl0 || body.mediaUrl0;
@@ -33,6 +34,7 @@ function parseTwilioWebhook(body) {
 
   return {
     from,
+    to,
     text,
     hasImage,
     messageSid,

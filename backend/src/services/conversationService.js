@@ -14,6 +14,9 @@ const {
   calculateAge,
   calculateNumerology,
   wantsToEndSession,
+  isCasualGreeting,
+  isBirthDateClarificationQuestion,
+  looksLikeBirthDateAttempt,
 } = require('../domain/numerology');
 const { parseBirthDateFlexible } = require('./birthDateService');
 const { replyAfterFirstSignal, buildFunnelHistory, ensureFunnelContext, shouldShowPaymentWall } = require('./freeFunnelService');
@@ -41,6 +44,8 @@ const {
   buildRepurchaseWallMessage,
   wantsRepurchaseSession,
 } = require('./oanBrainService');
+
+const { withTimeout } = require('../lib/withTimeout');
 
 const RESTART_TRIGGERS = ['reiniciar', 'empezar de nuevo', 'start over', 'reset'];
 const RECENT_SESSION_MS = 24 * 60 * 60 * 1000;
@@ -100,26 +105,46 @@ function bumpSession(session, updates = {}) {
 }
 
 async function saveAndReply(from, session, message) {
-  await Promise.all([persistSession(session), sendTextMessage(from, message)]);
+  await sendTextMessage(from, message);
+  persistSession(session).catch((err) => {
+    console.error('Session persist error:', err.message);
+  });
+}
+
+async function createSessionSafe(from, state, extra = {}) {
+  try {
+    await withTimeout(createSession(from, state, extra), 8000, 'Session create');
+  } catch (err) {
+    console.error('Session create error:', err.message);
+  }
 }
 
 async function processIncomingMessage({ from, text, hasImage, media, messageSid }) {
-  await refreshTypingForUser(from);
+  refreshTypingForUser(from).catch(() => {});
 
   const stopTypingRefresh = startTypingRefresh(from);
 
   try {
-    let session = await getSession(from);
+    let session;
+    try {
+      session = await withTimeout(getSession(from), 8000, 'Session load');
+    } catch (err) {
+      console.error('Session load error:', err.message);
+      await sendTextMessage(from, MESSAGES.openaiError);
+      return;
+    }
 
     if (text && wantsSessionRestart(text)) {
-      await resetSessionForRestart(from);
       await sendTextMessage(from, MESSAGES.welcome);
+      resetSessionForRestart(from).catch((err) => {
+        console.error('Session restart error:', err.message);
+      });
       return;
     }
 
     if (!session) {
-      await createSession(from, SESSION_STATES.AWAITING_BIRTH_DATE);
       await sendTextMessage(from, MESSAGES.welcome);
+      await createSessionSafe(from, SESSION_STATES.AWAITING_BIRTH_DATE);
       return;
     }
 
@@ -141,8 +166,8 @@ async function processIncomingMessage({ from, text, hasImage, media, messageSid 
 
       session = await recoverActiveFunnelSession(session);
     } else if (session.state === SESSION_STATES.NEW || session.state === SESSION_STATES.SESSION_ENDED) {
-      await createSession(from, SESSION_STATES.AWAITING_BIRTH_DATE);
       await sendTextMessage(from, MESSAGES.welcome);
+      await createSessionSafe(from, SESSION_STATES.AWAITING_BIRTH_DATE);
       return;
     }
 
@@ -165,7 +190,7 @@ async function processIncomingMessage({ from, text, hasImage, media, messageSid 
         break;
 
       case SESSION_STATES.AWAITING_PAYMENT:
-        await handlePayment(from, hasImage, media, session);
+        await handlePayment(from, text, hasImage, media, session);
         break;
 
       case SESSION_STATES.ACTIVE:
@@ -173,8 +198,12 @@ async function processIncomingMessage({ from, text, hasImage, media, messageSid 
         break;
 
       default:
+        await saveAndReply(from, bumpSession(session), MESSAGES.birthDateRequired);
         break;
     }
+  } catch (err) {
+    console.error('Conversation error:', err.message);
+    await sendTextMessage(from, MESSAGES.openaiError);
   } finally {
     stopTypingRefresh();
   }
@@ -182,13 +211,26 @@ async function processIncomingMessage({ from, text, hasImage, media, messageSid 
 
 async function handleBirthDate(from, text, session) {
   if (!text) {
-    await saveAndReply(from, session, MESSAGES.birthDateRequired);
+    await saveAndReply(from, bumpSession(session), MESSAGES.birthDateRequired);
+    return;
+  }
+
+  if (isCasualGreeting(text)) {
+    await saveAndReply(from, bumpSession(session), MESSAGES.welcome);
+    return;
+  }
+
+  if (isBirthDateClarificationQuestion(text)) {
+    await saveAndReply(from, bumpSession(session), MESSAGES.birthDateClarification);
     return;
   }
 
   const parsed = await parseBirthDateFlexible(text);
   if (!parsed) {
-    await saveAndReply(from, session, MESSAGES.birthDateInvalid);
+    const reply = looksLikeBirthDateAttempt(text)
+      ? MESSAGES.birthDateInvalid
+      : MESSAGES.birthDateRequired;
+    await saveAndReply(from, bumpSession(session), reply);
     return;
   }
 
@@ -324,7 +366,7 @@ async function handleFreeSignalStep3(from, text, hasImage, media, session) {
   await saveAndReply(from, updated, paymentMessage);
 }
 
-async function handlePayment(from, hasImage, media, session) {
+async function handlePayment(from, text, hasImage, media, session) {
   if (hasCompletedPayment(session)) {
     if (isPaidSessionActive(session)) {
       await saveAndReply(from, bumpSession(session), MESSAGES.alreadyInPaidSession);
@@ -335,7 +377,18 @@ async function handlePayment(from, hasImage, media, session) {
   }
 
   if (!hasImage || !media) {
-    console.warn('Payment expected image:', { from, state: session.state, hasImage, mediaUrl: media?.url });
+    if (wantsSessionRestart(text) || isCasualGreeting(text)) {
+      await sendTextMessage(from, MESSAGES.welcome);
+      resetSessionForRestart(from).catch((err) => {
+        console.error('Session restart error:', err.message);
+      });
+      return;
+    }
+
+    console.log('Awaiting Yape screenshot:', {
+      from,
+      text: String(text || '').slice(0, 40),
+    });
     await saveAndReply(from, bumpSession(session), MESSAGES.paymentScreenshotRequired);
     return;
   }
