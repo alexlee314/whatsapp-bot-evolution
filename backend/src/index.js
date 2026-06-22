@@ -9,8 +9,10 @@ const {
   getStorePath,
 } = require('./models/SessionModel');
 const { endSessionGracefully } = require('./services/conversationService');
+const { ensureInitialized: ensureDashboardPassword } = require('./services/dashboardPasswordService');
 
 async function startServer() {
+  ensureDashboardPassword();
   const storeKind = resolveStoreKind();
 
   if (storeKind === 'postgres') {

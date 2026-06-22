@@ -2,5 +2,6 @@ node_modules/
 .env
 backend/data/sessions.json
 backend/data/payment_redemptions.json
+backend/data/dashboard-auth.json
 backend/data/*.db
 backend/data/*.db-*

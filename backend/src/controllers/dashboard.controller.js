@@ -18,4 +18,31 @@ async function getDashboardJson(req, res) {
   }
 }
 
-module.exports = { serveDashboardPage, getDashboardJson };
+async function changeDashboardPassword(req, res) {
+  const { newPassword, confirmPassword } = req.body || {};
+  const { changePassword, MIN_PASSWORD_LENGTH } = require('../services/dashboardPasswordService');
+
+  if (!newPassword || !confirmPassword) {
+    return res.status(400).json({
+      error: 'Completa la nueva contraseña y su confirmación.',
+    });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ error: 'La confirmación no coincide.' });
+  }
+
+  const result = changePassword(req.dashboardPassword, newPassword);
+
+  if (!result.ok) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  res.json({
+    ok: true,
+    message: 'Contraseña actualizada. Usa la nueva clave la próxima vez que entres.',
+    minLength: MIN_PASSWORD_LENGTH,
+  });
+}
+
+module.exports = { serveDashboardPage, getDashboardJson, changeDashboardPassword };

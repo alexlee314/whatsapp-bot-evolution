@@ -14,6 +14,7 @@
     <div class="auth-box">
       <h1>El Oráculo Andino</h1>
       <p>Panel de administración — ingresa la clave de acceso</p>
+      <p class="auth-hint">Clave inicial: <strong>admin123</strong> (cámbiala con el botón del panel tras entrar)</p>
       <form id="auth-form">
         <input type="password" id="password-input" placeholder="Contraseña" autocomplete="current-password" required />
         <button type="submit">Entrar</button>
@@ -24,9 +25,15 @@
 
   <div id="dashboard" class="hidden">
     <div class="wrap">
-      <header>
-        <h1>El Oráculo Andino</h1>
-        <p>Panel de conversaciones y sesiones</p>
+      <header class="dashboard-header">
+        <div>
+          <h1>El Oráculo Andino</h1>
+          <p>Panel de conversaciones y sesiones</p>
+        </div>
+        <div class="header-actions">
+          <button type="button" id="password-change-btn" class="btn-secondary">Cambiar contraseña</button>
+          <button type="button" id="logout-btn" class="btn-secondary">Cerrar sesión</button>
+        </div>
       </header>
 
       <div class="refresh-bar">
@@ -56,7 +63,7 @@
       <section>
         <h2>Sesiones activas</h2>
         <div class="table-wrap">
-          <table>
+          <table class="data-table">
             <thead>
               <tr>
                 <th>Teléfono</th>
@@ -68,12 +75,21 @@
             <tbody id="active-sessions-body"></tbody>
           </table>
         </div>
+        <div class="pagination hidden" id="active-sessions-pagination"></div>
       </section>
 
       <section>
         <h2>Historial de conversaciones</h2>
         <div class="table-wrap">
-          <table>
+          <table class="data-table data-table--conversations">
+            <colgroup>
+              <col class="col-phone" />
+              <col class="col-date" />
+              <col class="col-state" />
+              <col class="col-count" />
+              <col class="col-icon" />
+              <col class="col-date" />
+            </colgroup>
             <thead>
               <tr>
                 <th>Teléfono</th>
@@ -87,12 +103,13 @@
             <tbody id="conversations-body"></tbody>
           </table>
         </div>
+        <div class="pagination hidden" id="conversations-pagination"></div>
       </section>
 
       <section>
         <h2>Registro de pagos</h2>
         <div class="table-wrap">
-          <table>
+          <table class="data-table">
             <thead>
               <tr>
                 <th>Teléfono</th>
@@ -104,7 +121,33 @@
             <tbody id="payments-body"></tbody>
           </table>
         </div>
+        <div class="pagination hidden" id="payments-pagination"></div>
       </section>
+    </div>
+
+    <div id="password-modal" class="modal hidden" aria-hidden="true">
+      <div class="modal-backdrop" id="password-modal-backdrop"></div>
+      <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
+        <button type="button" class="modal-close" id="password-modal-close" aria-label="Cerrar">×</button>
+        <h2 id="password-modal-title">Seguridad</h2>
+        <p class="modal-note">Cambia la contraseña del panel. Mínimo 8 caracteres.</p>
+        <form id="password-form" class="settings-form">
+          <label>
+            Contraseña actual
+            <input type="password" id="current-password" autocomplete="current-password" required />
+          </label>
+          <label>
+            Nueva contraseña
+            <input type="password" id="new-password" autocomplete="new-password" minlength="8" required />
+          </label>
+          <label>
+            Confirmar nueva contraseña
+            <input type="password" id="confirm-password" autocomplete="new-password" minlength="8" required />
+          </label>
+          <button type="submit">Actualizar contraseña</button>
+          <p class="settings-message" id="password-message"></p>
+        </form>
+      </div>
     </div>
   </div>
 

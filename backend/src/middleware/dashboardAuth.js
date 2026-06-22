@@ -1,4 +1,4 @@
-const { config } = require('../config/env');
+const { verifyPassword } = require('../services/dashboardPasswordService');
 
 function extractPassword(req) {
   return (
@@ -8,14 +8,24 @@ function extractPassword(req) {
   );
 }
 
-function checkDashboardAuth(req, res, next) {
+async function checkDashboardAuth(req, res, next) {
   const password = extractPassword(req);
 
-  if (!password || password !== config.dashboardPassword) {
+  if (!password) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  return next();
+  try {
+    const valid = verifyPassword(password);
+    if (!valid) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    req.dashboardPassword = password;
+    return next();
+  } catch (err) {
+    console.error('Dashboard auth error:', err.message);
+    return res.status(500).json({ error: 'Auth check failed' });
+  }
 }
 
 module.exports = { checkDashboardAuth, extractPassword };

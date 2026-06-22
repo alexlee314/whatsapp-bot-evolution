@@ -12,6 +12,19 @@ table {
   font-size: 0.875rem;
 }
 
+.data-table {
+  table-layout: fixed;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.85rem 0.75rem;
+  text-align: center;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--card-border);
+  line-height: 1.35;
+}
+
 th,
 td {
   padding: 0.75rem 1rem;
@@ -25,6 +38,43 @@ th {
   letter-spacing: 0.05em;
   color: var(--muted);
   font-weight: 600;
+}
+
+.data-table th {
+  white-space: normal;
+  word-break: break-word;
+}
+
+.data-table--conversations .col-phone {
+  width: 11%;
+}
+
+.data-table--conversations .col-date {
+  width: 18%;
+}
+
+.data-table--conversations .col-state {
+  width: 24%;
+}
+
+.data-table--conversations .col-count {
+  width: 10%;
+}
+
+.data-table--conversations .col-icon {
+  width: 9%;
+}
+
+.data-table .state-tag,
+.data-table .badge {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.data-table .state-tag {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -45,8 +95,10 @@ tr:hover td {
 
 @media (max-width: 600px) {
   th,
-  td {
-    padding: 0.6rem 0.75rem;
+  td,
+  .data-table th,
+  .data-table td {
+    padding: 0.6rem 0.5rem;
     font-size: 0.8rem;
   }
 }
